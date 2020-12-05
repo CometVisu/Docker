@@ -5,7 +5,7 @@
 # chosen to have an overall optimization.
 # An obvious choice for a smaller enviroment could be e.g. debian:stable-slim
 
-FROM debian:jessie as builder
+FROM debian:buster as builder
 
 ARG BUILD_BRANCH
 RUN echo BUILD_BRANCH: ${BUILD_BRANCH}
@@ -54,7 +54,7 @@ RUN git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${BUIL
 
 # install in a fresh and thus clean environment
 
-FROM debian:jessie
+FROM debian:buster
 
 LABEL maintainer="Christian Mayer docker@cometvisu.org" \
   description="The knxd to access the KNX bus."
