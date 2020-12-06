@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/CometVisu/Docker.svg?branch=master)](https://travis-ci.org/CometVisu/Docker) [![Coverage Status](https://coveralls.io/repos/github/CometVisu/Docker/badge.svg?branch=develop)](https://coveralls.io/github/CometVisu/Docker?branch=master)
+[![Build Status](https://travis-ci.org/CometVisu/Docker.svg?branch=master)](https://travis-ci.org/CometVisu/Docker) 
 [![Join the chat at https://gitter.im/CometVisu/CometVisu](https://badges.gitter.im/CometVisu/CometVisu.svg)](https://gitter.im/CometVisu/CometVisu?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 # Docker
