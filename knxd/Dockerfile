@@ -51,9 +51,9 @@ ENV INSTALLDIR $KNXDIR/local
 
 RUN git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${BUILD_BRANCH} \
   && sh bootstrap.sh \
-  && ./configure --enable-eibnetip --enable-eibnetiptunnel --disable-eibnetipserver --disable-systemd --enable-groupcache --disable-java \
+  && ./configure --enable-silent-rules --enable-eibnetip --enable-eibnetiptunnel --disable-eibnetipserver --disable-systemd --enable-groupcache --disable-java \
     --disable-shared --enable-static \
-    --prefix=$INSTALLDIR/ --with-pth=$INSTALLDIR/ \
+    --prefix=$INSTALLDIR/ \
   && make \
   && make install-strip \
   && cp src/server/knxd_args /usr/local/bin

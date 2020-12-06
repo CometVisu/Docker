@@ -9,13 +9,17 @@ if [ "${STOP_ON_BAD_HEALTH}" = "true" ]
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
 fi
 
-if [ "${KNX_INTERFACE}" != "" ]; then
-    echo "starting knxd"
-    knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
-    chmod a+w /tmp/eib
-    echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-    echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+if [ "${KNXD_PARAMETERS}" != "" ]; then
+    echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
+else
+    KNXD_PARAMETERS="-c -u ${KNX_INTERFACE} -e ${KNX_PA} -E ${KNX_CLIENT_PAS}"
+    echo "creating knxd config file from single parameters (${KNXD_PARAMETERS})"
 fi
+knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
+echo -n "starting knxd - version: " && knxd --version
+knxd /etc/knxd.conf
+echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ]; then
