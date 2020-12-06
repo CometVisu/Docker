@@ -9,7 +9,8 @@ set -e # exit in case of any error
 # if the build is triggered in the "develop" branch (instead "master"), the container will be named "testing" instead "latest"
 
 # enter desired platforms here (following the docker notation, e.g. arm32v7
-targetArch=(amd64 arm32v7)
+#targetArch=(amd64 arm32v7)
+targetArch=(arm32v7 amd64)
 
 # enter here the mapping of docker platform notation to qemu notation, e.g. for arm32v7 is arm the appropriate mapping
 declare -A qemuArchMap=([amd64]=amd [arm32v7]=arm)
