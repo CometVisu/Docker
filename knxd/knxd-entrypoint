@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+if [ "${KNXD_PARAMETERS}" != "" ]; then
+    echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
+else
+    KNXD_PARAMETERS="-c -u ${KNX_INTERFACE} -e ${KNX_PA} -E ${KNX_CLIENT_PAS}"
+    echo "creating knxd config file from single parameters (${KNXD_PARAMETERS})"
+fi
+
+knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
+
+exec "$@"
