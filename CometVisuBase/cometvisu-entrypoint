@@ -18,6 +18,7 @@ fi
 knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
 echo -n "starting knxd - version: " && knxd --version
 knxd /etc/knxd.conf
+chmod a+w /run/knx
 echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
 echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
 
