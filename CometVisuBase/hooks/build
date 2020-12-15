@@ -61,6 +61,7 @@ do
 
 	docker build --build-arg VCS_REF=`git rev-parse --short HEAD` \
 	  --build-arg BUILD_DATE=`date -u +"%Y-%m-%dT%H:%M:%SZ"` \
+	  --build-arg KNXD_BUILD_BRANCH='test' \
 	  -t cometvisu/cometvisuabstractbase:$baseArchDocker-$imageTag -f Dockerfile.$baseArchDocker .
  
 	if [[ "$1" == "--noPush" ]]

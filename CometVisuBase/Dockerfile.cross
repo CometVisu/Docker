@@ -10,7 +10,7 @@ RUN apt-get -qq update \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
  # build-essential gcc git rsync cmake make g++ binutils automake flex bison patch wget libtool \
 
-ARG KNXD_BUILD_BRANCH
+ARG KNXD_BUILD_BRANCH=master
 ENV KNXDIR /usr
 ENV INSTALLDIR $KNXDIR/local
 #ENV SOURCEDIR  $KNXDIR/src
@@ -19,7 +19,8 @@ ENV INSTALLDIR $KNXDIR/local
 #WORKDIR $SOURCEDIR
 
 # build knxd
-RUN git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${KNXD_BUILD_BRANCH} \
+RUN echo Building knxd from branch ${KNXD_BUILD_BRANCH} \
+ && git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${KNXD_BUILD_BRANCH} \
  && sh ./bootstrap.sh \
  && ./configure --enable-silent-rules \
     --enable-eibnetip --enable-eibnetiptunnel --disable-eibnetipserver --disable-systemd --enable-groupcache --disable-java \
@@ -27,7 +28,8 @@ RUN git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${KNXD
     --prefix=$INSTALLDIR/ \
  && make \
  && make install-strip \
- && cp src/server/knxd_args /usr/local/bin
+ && cp src/server/knxd_args /usr/local/bin \
+ && echo -n "knxd version built: " && /usr/local/bin/knxd --version
 
 ##############
 # Run environment
