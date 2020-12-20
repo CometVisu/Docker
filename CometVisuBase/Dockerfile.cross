@@ -19,7 +19,7 @@ ENV INSTALLDIR $KNXDIR/local
 #WORKDIR $SOURCEDIR
 
 # build knxd
-RUN echo Building knxd from branch ${KNXD_BUILD_BRANCH} \
+RUN echo Building knxd from branch "${KNXD_BUILD_BRANCH}" \
  && git clone https://github.com/knxd/knxd.git && cd knxd && git checkout ${KNXD_BUILD_BRANCH} \
  && sh ./bootstrap.sh \
  && ./configure --enable-silent-rules \
@@ -29,7 +29,11 @@ RUN echo Building knxd from branch ${KNXD_BUILD_BRANCH} \
  && make \
  && make install-strip \
  && cp src/server/knxd_args /usr/local/bin \
- && echo -n "knxd version built: " && /usr/local/bin/knxd --version
+ && echo '###############################################################################' \
+ && echo '###############################################################################' \
+ && echo -n "knxd version built: " && /usr/local/bin/knxd --version \
+ && echo '###############################################################################' \
+ && echo '###############################################################################'
 
 ##############
 # Run environment
