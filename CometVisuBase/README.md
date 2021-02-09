@@ -22,14 +22,16 @@ Environment parameters:
 |CGI_URL_PATH           |/cgi-bin/                |Set the URL prefix to find the `cgi-bin` resources|
 |BACKEND_PROXY_SOURCE   |                         |Proxy paths starting with this value, e.g. `/rest` for openHAB backend|
 |BACKEND_PROXY_TARGET   |                         |Target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest` for openHAB backend|
+|BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab` or `default`, not needed if you use the default backend|
 
 Example configuration for an openHAB backend (running on host `192.168.0.10`):
 
 ```
 KNX_INTERFACE=
 CGI_URL_PATH=/rest/cv/
-BACKEND_PROXY_SOURCE=/rest
-BACKEND_PROXY_TARGET=http://192.168.0.10:8080/rest
+BACKEND_NAME=openhab
+BACKEND_PROXY_SOURCE=/rest/
+BACKEND_PROXY_TARGET=http://192.168.0.10:8080/rest/
 ```
 
 Setup:

@@ -18,13 +18,19 @@ if [ "${KNX_INTERFACE}" != "" ]; then
 fi
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
-if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ]; then
-    echo "Non default CGI_URL_PATH detected: '$CGI_URL_PATH'"
+if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ] || [ "${BACKEND_NAME}" != "" ]; then
+    echo "Non default CGI_URL_PATH or BACKEND_NAME detected. URL: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}'"
 
     # Tell the CometVisu to path to the login
-    echo '<FilesMatch "visu_config.*xml$">'                             >  /var/www/html/.htaccess
-    echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> /var/www/html/.htaccess
-    echo '</FilesMatch>'                                                >> /var/www/html/.htaccess
+    echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+    echo '<FilesMatch "visu_config.*xml$">'                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ]; then   
+    echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+if [ "${BACKEND_NAME}" != "" ]; then
+    echo "    Header set X-CometVisu-Backend-Name ${BACKEND_NAME}"      >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+    echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 
     # Pass CometVisu the resource path during the login
     sed -i 's@\\\"s\\\":\\\"SESSION\\\".*}\"@\\\"s\\\":\\\"SESSION\\\", \\\"c\\\": {\\\"baseURL\\\": \\\"'"$CGI_URL_PATH"'\\\"} }"@' /usr/lib/cgi-bin/l
@@ -32,7 +38,9 @@ fi
 
 if [ "${BACKEND_PROXY_SOURCE}" != "" ] && [ "${BACKEND_PROXY_TARGET}" != "" ]; then
     echo "proxying ${BACKEND_PROXY_SOURCE} -> ${BACKEND_PROXY_TARGET}"
-    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >  $APACHE_CONFDIR/conf-available/cv-proxy.conf
+    # exclude manager backend from proxying
+    echo "ProxyPass" /rest/manager !                                        >  $APACHE_CONFDIR/conf-available/cv-proxy.conf
+    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >>  $APACHE_CONFDIR/conf-available/cv-proxy.conf
     echo "ProxyPassReverse ${BACKEND_PROXY_TARGET} ${BACKEND_PROXY_SOURCE}" >> $APACHE_CONFDIR/conf-available/cv-proxy.conf
 
     a2enmod proxy_http > /dev/null
