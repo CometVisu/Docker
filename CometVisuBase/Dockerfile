@@ -1,5 +1,4 @@
-FROM __BASEIMAGE_ARCH__/php:8.1-apache as builder
-__CROSS_COPY qemu-__QEMU_ARCH__-static /usr/bin
+FROM php:8.0-apache as builder
 
 ##################
 # Compile knxd 0.0.5.1
@@ -38,8 +37,7 @@ RUN wget -O knxd_0.0.5.1.tar.gz "https://github.com/knxd/knxd/archive/0.0.5.1.ta
 
 ##############
 # Run environment
-FROM __BASEIMAGE_ARCH__/php:8.1-apache
-__CROSS_COPY qemu-__QEMU_ARCH__-static /usr/bin
+FROM php:8.0-apache
 
 # set by the automated build at DockerHub
 ARG BUILD_DATE
