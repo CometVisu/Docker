@@ -29,7 +29,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: directory list
-        run:  ls -l -A && -ls -l -A workflow_dispatch:
+        run:  ls -l -A && -ls -l -A
       -
         name: Build and push
         uses: docker/build-push-action@v2
