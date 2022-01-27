@@ -3,7 +3,7 @@ FROM php:8.0-apache as builder
 ##################
 # Compile knxd 0.0.5.1
 RUN apt-get -qq update \
- && apt-get install -y python python-dev python-pip python-virtualenv \
+ && apt-get install -y python python-dev python3-pip python3-virtualenv \
  && apt-get install -y build-essential gcc git rsync cmake make g++ binutils automake flex bison patch wget libtool \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
