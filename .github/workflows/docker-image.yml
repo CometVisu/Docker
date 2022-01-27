@@ -31,7 +31,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: directory list
-        run:  ls -l -A && ls -l -A CometVisuBase && ls -l -A ${{defaultContext}}/CometVisuBase
+        run:  ls -l -A && ls -l -A CometVisuBase
       -
         name: Build and push
         uses: docker/build-push-action@v2
