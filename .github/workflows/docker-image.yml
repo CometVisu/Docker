@@ -36,7 +36,7 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v2
         with:
-          context: {{defaultContext}}:CometVisuBase
+          context: ./CometVisuBase
           platforms: linux/amd64,linux/arm64
           push: true
           tags: user/app:latest
