@@ -40,4 +40,4 @@ jobs:
           file: CometVisuBase/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: user/app:latest
+          tags: cometvisu/cometvisuabstractbase:newlatest
