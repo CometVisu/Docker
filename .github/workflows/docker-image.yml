@@ -31,7 +31,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: directory list
-        run:  ls -l -A && ls -l -A CometVisuBase && echo SEC && echo ${{ secrets.DOCKERHUB_USERNAME }} && echo CES
+        run:  ls -l -A && ls -l -A CometVisuBase && echo SEC && echo ${{ secrets.DOCKERHUB_USERNAME }} | md5sum && echo CES
       -
         name: Build and push
         uses: docker/build-push-action@v2
