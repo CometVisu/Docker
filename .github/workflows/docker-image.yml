@@ -13,6 +13,12 @@ jobs:
 
     steps:
       -
+        name: Prepare
+        id: prep
+        run: |
+          echo ::set-output name=build_date::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo ::set-output name=vcs_ref::${GITHUB_SHA::8}
+      -
         name: Checkout
         uses: actions/checkout@v2
       -
@@ -38,6 +44,9 @@ jobs:
         with:
           context: ./CometVisuBase
           file: CometVisuBase/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/386,linux/ppc64le,linux/s390x
           push: true
           tags: cometvisu/cometvisuabstractbase:newlatest
+          build-args: |
+            BUILD_DATE=${{ steps.prep.outputs.build_date }}
+            VCS_REF=${{ steps.prep.outputs.vcs_ref }}
