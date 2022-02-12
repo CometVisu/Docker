@@ -47,7 +47,7 @@ jobs:
           file: CometVisuBase/Dockerfile
           platforms: linux/amd64,linux/arm/v7,linux/arm64
           push: true
-          tags: cometvisu/cometvisuabstractbase:latesttest,cometvisu/cometvisuabstractbase:latesttest-${{ steps.prep.outputs.date }}
+          tags: cometvisu/cometvisuabstractbase:latest,cometvisu/cometvisuabstractbase:latest-${{ steps.prep.outputs.date }}
           build-args: |
             BUILD_DATE=${{ steps.prep.outputs.build_date }}
             VCS_REF=${{ steps.prep.outputs.vcs_ref }}
