@@ -21,7 +21,8 @@ RUN cd $SOURCEDIR
 RUN wget -O pthsem_2.0.8.tar.gz "https://osdn.net/frs/g_redir.php?m=kent&f=bcusdk%2Fpthsem%2Fpthsem_2.0.8.tar.gz"
 RUN echo "$PTHSEM_DOWNLOAD_SHA256 pthsem_2.0.8.tar.gz" | sha256sum -c -
 RUN tar -xzf pthsem_2.0.8.tar.gz
-RUN cd pthsem-2.0.8 && ./configure --prefix=$INSTALLDIR/
+RUN cd pthsem-2.0.8
+RUN ./configure --prefix=$INSTALLDIR/
 RUN ls -l -A
 RUN make
 RUN   make test

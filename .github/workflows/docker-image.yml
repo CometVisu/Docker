@@ -45,7 +45,7 @@ jobs:
         with:
           context: ./CometVisuBase
           file: CometVisuBase/Dockerfile
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: cometvisu/cometvisuabstractbase:latesttest,cometvisu/cometvisuabstractbase:latesttest-${{ steps.prep.outputs.date }}
           build-args: |
