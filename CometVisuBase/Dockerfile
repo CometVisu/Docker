@@ -1,11 +1,10 @@
-FROM __BASEIMAGE_ARCH__/php:8.1-apache as builder
-__CROSS_COPY qemu-__QEMU_ARCH__-static /usr/bin
+FROM php:8.0-apache-bullseye as builder
 
 ##################
 # Compile knxd 0.0.5.1
-RUN apt-get -qq update \
- && apt-get install -y python python-dev python-pip python-virtualenv \
- && apt-get install -y build-essential gcc git rsync cmake make g++ binutils automake flex bison patch wget libtool \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
+ && apt-get install -y python python-dev python3-pip python3-virtualenv \
+ && apt-get install -y build-essential gcc git rsync cmake make g++ binutils automake autoconf flex bison patch wget libtool \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 
@@ -18,14 +17,22 @@ WORKDIR $SOURCEDIR
 
 # build pthsem
 ENV PTHSEM_DOWNLOAD_SHA256 4024cafdd5d4bce2b1778a6be5491222c3f6e7ef1e43971264c451c0012c5c01
-RUN wget -O pthsem_2.0.8.tar.gz "https://osdn.net/frs/g_redir.php?m=kent&f=bcusdk%2Fpthsem%2Fpthsem_2.0.8.tar.gz" \
+RUN cd $SOURCEDIR \
+ && wget -O pthsem_2.0.8.tar.gz "https://osdn.net/frs/g_redir.php?m=kent&f=bcusdk%2Fpthsem%2Fpthsem_2.0.8.tar.gz" \
  && echo "$PTHSEM_DOWNLOAD_SHA256 pthsem_2.0.8.tar.gz" | sha256sum -c - \
  && tar -xzf pthsem_2.0.8.tar.gz \
- && cd pthsem-2.0.8 && ./configure --prefix=$INSTALLDIR/ && make && make test && make install
+ && cd pthsem-2.0.8 && wget -O config.guess "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=c179db1b6f2ae484bfca1e9f8bae273e3319fa7d" \
+ && wget -O config.sub "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=c179db1b6f2ae484bfca1e9f8bae273e3319fa7d" \
+ && ./configure --prefix=$INSTALLDIR/ \
+ && ls -l -A \
+ && make \
+ && make test \
+ && make install
 
 # build knxd
 ENV KNXD_DOWNLOAD_SHA256 f47a02efd8618dc1ec5837e08017dabbaa2712a9b9c36af7784426cc9429455e
-RUN wget -O knxd_0.0.5.1.tar.gz "https://github.com/knxd/knxd/archive/0.0.5.1.tar.gz" \
+RUN cd $SOURCEDIR \
+ && wget -O knxd_0.0.5.1.tar.gz "https://github.com/knxd/knxd/archive/0.0.5.1.tar.gz" \
  && echo "$KNXD_DOWNLOAD_SHA256 knxd_0.0.5.1.tar.gz" | sha256sum -c - \
  && tar -xzf knxd_0.0.5.1.tar.gz \
  && cd knxd-0.0.5.1 && ./bootstrap.sh \
@@ -38,8 +45,7 @@ RUN wget -O knxd_0.0.5.1.tar.gz "https://github.com/knxd/knxd/archive/0.0.5.1.ta
 
 ##############
 # Run environment
-FROM __BASEIMAGE_ARCH__/php:8.1-apache
-__CROSS_COPY qemu-__QEMU_ARCH__-static /usr/bin
+FROM php:8.0-apache-bullseye
 
 # set by the automated build at DockerHub
 ARG BUILD_DATE
@@ -68,7 +74,7 @@ COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/busmonitor1 /usr/src/knxd
 COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/eibread-cgi /usr/lib/cgi-bin/r
 COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/eibwrite-cgi /usr/lib/cgi-bin/w
 
-RUN apt-get -qq update \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install -y --no-install-recommends rrdtool \
  && apt-get install -y --no-install-recommends libxml2-dev \
  && docker-php-ext-install soap \
@@ -79,6 +85,9 @@ COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
 
 # Overwrite package default - allow index
 RUN { \
+    echo 'LimitRequestFieldSize 32768'; \
+    echo 'LimitRequestLine 32768'; \
+    echo; \
     echo '<FilesMatch \.php$>'; \
     echo '\tSetHandler application/x-httpd-php'; \
     echo '</FilesMatch>'; \
