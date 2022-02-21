@@ -14,24 +14,41 @@ Environment parameters:
 
 |Parameter              |Default                  |Description|
 |-----------------------|-------------------------|-----------|
-|STOP_ON_BAD_HEALTH     |false                    |Stop container on failed health check when set to `true`. This will triggerd a new start of the container when docker is configured to do so|
+|BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
+|BACKEND_URL            |                         |URL to access the backend (for `knxd` the URI of `l`|
+|CGI_URL_PATH           |/cgi-bin/                |Special case for `knxd`: URL prefix to the `cgi-bin` resources; only relevant when `BACKEND_URL` is not set|
+|KNX_INTERFACE          |iptn:172.17.0.1:3700     |Special case for `knxd`: information for the knxd to connect to the KNX bus|
+|KNX_PA                 |1.1.238                  |Special case for `knxd`: PA for the knxd|
+|KNXD_PARAMETERS        |-u -d/var/log/eibd.log -c|Special case for `knxd`: additional startup parameters for the knxd|
+|BACKEND_PROXY_SOURCE   |                         |Special case for openHAB: proxy paths starting with this value, e.g. `/rest`|
+|BACKEND_PROXY_TARGET   |                         |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
+|STOP_ON_BAD_HEALTH     |false                    |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
 |ACCESS_LOG             |false                    |Show web server access log when set to `true`|
-|KNX_INTERFACE          |iptn:172.17.0.1:3700     |Setting this to empty string, will prevent the knxd from beeing started|
-|KNX_PA                 |1.1.238                  ||
-|KNXD_PARAMETERS        |-u -d/var/log/eibd.log -c||
-|CGI_URL_PATH           |/cgi-bin/                |Set the URL prefix to find the `cgi-bin` resources|
-|BACKEND_PROXY_SOURCE   |                         |Proxy paths starting with this value, e.g. `/rest` for openHAB backend|
-|BACKEND_PROXY_TARGET   |                         |Target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest` for openHAB backend|
-|BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab` or `default`, not needed if you use the default backend|
+
+### KNX
+
+By default the environment variables are configured to setup a KNX connection.
+But make sure that `KNX_INTERFACE` and `KNX_PA` are set correctly.
+
+### openHAB
 
 Example configuration for an openHAB backend (running on host `192.168.0.10`):
 
 ```
-KNX_INTERFACE=
-CGI_URL_PATH=/rest/cv/
 BACKEND_NAME=openhab
+CGI_URL_PATH=/rest/cv/
 BACKEND_PROXY_SOURCE=/rest/
 BACKEND_PROXY_TARGET=http://192.168.0.10:8080/rest/
+```
+
+### MQTT
+
+Example configuration for an MQTT backend (running on `timberwolf.local` at
+port `443` with secure websockets):
+
+```
+BACKEND_NAME=openhab
+BACKEND_URL=wss://timberwolf.local:443/proxy/mqtt/ws
 ```
 
 Setup:

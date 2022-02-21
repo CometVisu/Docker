@@ -47,6 +47,16 @@ RUN cd $SOURCEDIR \
 # Run environment
 FROM php:8.0-apache-bullseye
 
+# clear upstream spilled ENV
+ENV PHPIZE_DEPS=
+ENV PHP_CFLAGS=
+ENV PHP_CPPFLAGS=
+ENV PHP_LDFLAGS=
+ENV GPG_KEYS=
+ENV PHP_URL=
+ENV PHP_ASC_URL=
+ENV PHP_SHA256=
+
 # set by the automated build at DockerHub
 ARG BUILD_DATE
 ARG VCS_REF
@@ -128,6 +138,8 @@ ENV KNX_PA 1.1.238
 ENV KNXD_PARAMETERS -u -d/dev/stdout -c
 
 ENV CGI_URL_PATH /cgi-bin/
+ENV BACKEND_NAME "knxd"
+ENV BACKEND_URL ""
 ENV BACKEND_PROXY_SOURCE ""
 ENV BACKEND_PROXY_TARGET ""
 
