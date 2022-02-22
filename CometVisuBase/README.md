@@ -22,6 +22,8 @@ Environment parameters:
 |BACKEND_PROXY_SOURCE   |                         |Special case for openHAB: proxy paths starting with this value, e.g. `/rest`|
 |BACKEND_PROXY_TARGET   |                         |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
 |BACKEND_URL            |                         |Special case for `mqtt`: URL to access the backend|
+|BACKEND_USERNAME       |                         |Special case for `mqtt`: user name for the connection to the MQTT broker|
+|BACKEND_PASSWORD       |                         |Special case for `mqtt`: password for the connection to the MQTT broker|
 |STOP_ON_BAD_HEALTH     |false                    |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
 |ACCESS_LOG             |false                    |Show web server access log when set to `true`|
 
@@ -47,9 +49,15 @@ Example configuration for an MQTT backend (running on `timberwolf.local` at
 port `443` with secure websockets):
 
 ```
-BACKEND_NAME=openhab
+BACKEND_NAME=mqtt
 BACKEND_URL=wss://timberwolf.local:443/proxy/mqtt/ws
+BACKEND_USERNAME=CometVisuUser
+BACKEND_PASSWORD=Password4MQTTBrokerThatIsNotVerySecure
 ```
+
+**Note:** The user name and password are stored in plain text on the Docker server
+as well as in the JavaScript engine of the browser. And when no transport
+encryption is used it is even transported in plaintext over the network.
 
 Setup:
 ------

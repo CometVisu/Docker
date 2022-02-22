@@ -29,9 +29,9 @@ esac
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
-if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ] || x"${BACKEND_URL}" != x"" ] || [ x"${BACKEND_NAME}" != x"" ]; then
-    echo "Non default CGI_URL_PATH, BACKEND_NAME or BACKEND_URL detected."
-    echo "CGI_URL_PATH: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}'"
+if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ] || x"${BACKEND_URL}" != x"" ] || [ x"${BACKEND_NAME}" != x"" || [ x"${BACKEND_USERNAME}" != x"" || [ x"${BACKEND_PASSWORD}" != x"" ]; then
+    echo "Non default CGI_URL_PATH, BACKEND_NAME, BACKEND_URL, BACKEND_USERNAME or BACKEND_PASSWORD detected."
+    echo "CGI_URL_PATH: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}', BACKEND_USERNAME: '${BACKEND_USERNAME}'"
 
     # Tell the CometVisu to path to the login
     echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
@@ -44,6 +44,12 @@ if [ x"${BACKEND_URL}" != x"" ]; then
 fi
 if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ]; then
     echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+if [ x"${BACKEND_USERNAME}" != x"" ]; then
+    echo "    Header set X-CometVisu-Backend-User ${BACKEND_USERNAME}"  >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+if [ x"${BACKEND_PASSWORD}" != x"" ]; then
+    echo "    Header set X-CometVisu-Backend-Pass ${BACKEND_PASSWORD}"  >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
     echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 
