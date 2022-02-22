@@ -4,18 +4,18 @@ set -e
 echo "#!/bin/sh" >  /usr/local/bin/healthcheck
 chmod a+x /usr/local/bin/healthcheck
 
-if [ "${STOP_ON_BAD_HEALTH}" = "true" ]
+if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     then echo "badhealth='apachectl stop'" >> /usr/local/bin/healthcheck
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
 fi
 
-if [ "${BACKEND_NAME}" == "default" || "${BACKEND_NAME}" == "" ]; then
+if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
     BACKEND_NAME="knxd"
 fi
 
 case "${BACKEND_NAME}" in
     *knxd*)
-        if [ "${KNX_INTERFACE}" != "" ]; then
+        if [ x"${KNX_INTERFACE}" != x"" ]; then
             echo "starting knxd"
             knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
             chmod a+w /tmp/eib
@@ -29,20 +29,20 @@ esac
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
-if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ] || "${BACKEND_URL}" != "" ] || [ "${BACKEND_NAME}" != "" ]; then
+if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ] || x"${BACKEND_URL}" != x"" ] || [ x"${BACKEND_NAME}" != x"" ]; then
     echo "Non default CGI_URL_PATH, BACKEND_NAME or BACKEND_URL detected."
     echo "CGI_URL_PATH: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}'"
 
     # Tell the CometVisu to path to the login
     echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
     echo '<FilesMatch "visu_config.*xml$">'                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
-if [ "${BACKEND_NAME}" != "" ]; then
+if [ x"${BACKEND_NAME}" != x"" ]; then
     echo "    Header set X-CometVisu-Backend-Name ${BACKEND_NAME}"      >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ "${BACKEND_URL}" != "" ]; then
+if [ x"${BACKEND_URL}" != x"" ]; then
     echo "    Header set X-CometVisu-Backend-Url ${BACKEND_URL}"        >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ]; then
+if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ]; then
     echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
     echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
@@ -51,7 +51,7 @@ fi
     sed -i 's@\\\"s\\\":\\\"SESSION\\\".*}\"@\\\"s\\\":\\\"SESSION\\\", \\\"c\\\": {\\\"baseURL\\\": \\\"'"$CGI_URL_PATH"'\\\"} }"@' /usr/lib/cgi-bin/l
 fi
 
-if [ "${BACKEND_PROXY_SOURCE}" != "" ] && [ "${BACKEND_PROXY_TARGET}" != "" ]; then
+if [ x"${BACKEND_PROXY_SOURCE}" != x"" ] && [ x"${BACKEND_PROXY_TARGET}" != x"" ]; then
     echo "proxying ${BACKEND_PROXY_SOURCE} -> ${BACKEND_PROXY_TARGET}"
     # exclude manager backend from proxying
     echo "ProxyPass" /rest/manager !                                        >  $APACHE_CONFDIR/conf-available/cv-proxy.conf
@@ -63,7 +63,7 @@ if [ "${BACKEND_PROXY_SOURCE}" != "" ] && [ "${BACKEND_PROXY_TARGET}" != "" ]; t
 fi
 
 rm /var/log/apache2/access.log
-if [ "${ACCESS_LOG}" = "true" ]
+if [ x"${ACCESS_LOG}" = x"true" ]
     then ln -s /dev/stdout /var/log/apache2/access.log
     else ln -s /dev/null /var/log/apache2/access.log
 fi
@@ -71,7 +71,7 @@ fi
 echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
 
 # first arg is `-f` or `--some-option`
-if [ "${1#-}" != "$1" ]; then
+if [ x"${1#-}" != x"$1" ]; then
     set -- apache2-foreground "$@"
 fi
 
