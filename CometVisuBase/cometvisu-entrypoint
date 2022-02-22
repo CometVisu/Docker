@@ -13,37 +13,37 @@ if [ "${BACKEND_NAME}" == "default" || "${BACKEND_NAME}" == "" ]; then
     BACKEND_NAME="knxd"
 fi
 
-if [ "${BACKEND_NAME}" == "knxd" ]; then
-    if [ "${CGI_URL_PATH}" != "" ]; then
-        BACKEND_URL="${CGI_URL_PATH}l"
-    fi
-    if [ "${BACKEND_URL}" == "" ]; then
-        BACKEND_URL="/cgi-bin/l"
-    fi
+case "${BACKEND_NAME}" in
+    *knxd*)
+        if [ "${KNX_INTERFACE}" != "" ]; then
+            echo "starting knxd"
+            knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
+            chmod a+w /tmp/eib
+            echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+        else
+            echo "ERROR: knxd backend selected, but KNX_INTERFACE is not set!"
+        fi
+        ;;
+esac
 
-    if [ "${KNX_INTERFACE}" != "" ]; then
-        echo "starting knxd"
-        knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
-        chmod a+w /tmp/eib
-        echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-        echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-    else
-        echo "ERROR: knxd backend selected, but KNX_INTERFACE is not set!"
-    fi
-fi
+CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
-if [ "${BACKEND_URL}" != "/cgi-bin/l" ] || [ "${BACKEND_NAME}" != "" ]; then
-    echo "Non default BACKEND_NAME or BACKEND_URL detected."
-    echo "BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}'"
+if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ] || "${BACKEND_URL}" != "" ] || [ "${BACKEND_NAME}" != "" ]; then
+    echo "Non default CGI_URL_PATH, BACKEND_NAME or BACKEND_URL detected."
+    echo "CGI_URL_PATH: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}'"
 
     # Tell the CometVisu to path to the login
     echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
     echo '<FilesMatch "visu_config.*xml$">'                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
-if [ "${BACKEND_URL}" != "/cgi-bin/l" ]; then
-    echo "    Header set X-CometVisu-Backend-LoginUrl ${BACKEND_URL}"   >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
-fi
 if [ "${BACKEND_NAME}" != "" ]; then
     echo "    Header set X-CometVisu-Backend-Name ${BACKEND_NAME}"      >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+if [ "${BACKEND_URL}" != "" ]; then
+    echo "    Header set X-CometVisu-Backend-Url ${BACKEND_URL}"        >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+fi
+if [ "${CGI_URL_PATH:-/cgi-bin/}" != "/cgi-bin/" ]; then
+    echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
     echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 

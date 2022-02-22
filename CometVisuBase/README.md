@@ -15,13 +15,13 @@ Environment parameters:
 |Parameter              |Default                  |Description|
 |-----------------------|-------------------------|-----------|
 |BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
-|BACKEND_URL            |                         |URL to access the backend (for `knxd` the URI of `l`|
-|CGI_URL_PATH           |/cgi-bin/                |Special case for `knxd`: URL prefix to the `cgi-bin` resources; only relevant when `BACKEND_URL` is not set|
+|CGI_URL_PATH           |/cgi-bin/                |Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
 |KNX_INTERFACE          |iptn:172.17.0.1:3700     |Special case for `knxd`: information for the knxd to connect to the KNX bus|
 |KNX_PA                 |1.1.238                  |Special case for `knxd`: PA for the knxd|
 |KNXD_PARAMETERS        |-u -d/var/log/eibd.log -c|Special case for `knxd`: additional startup parameters for the knxd|
 |BACKEND_PROXY_SOURCE   |                         |Special case for openHAB: proxy paths starting with this value, e.g. `/rest`|
 |BACKEND_PROXY_TARGET   |                         |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
+|BACKEND_URL            |                         |Special case for `mqtt`: URL to access the backend|
 |STOP_ON_BAD_HEALTH     |false                    |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
 |ACCESS_LOG             |false                    |Show web server access log when set to `true`|
 
