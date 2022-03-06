@@ -29,33 +29,37 @@ esac
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
-if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ] || x"${BACKEND_URL}" != x"" ] || [ x"${BACKEND_NAME}" != x"" || [ x"${BACKEND_USERNAME}" != x"" || [ x"${BACKEND_PASSWORD}" != x"" ]; then
-    echo "Non default CGI_URL_PATH, BACKEND_NAME, BACKEND_URL, BACKEND_USERNAME or BACKEND_PASSWORD detected."
-    echo "CGI_URL_PATH: '${CGI_URL_PATH}', BACKEND_NAME: '${BACKEND_NAME}', BACKEND_URL: '${BACKEND_URL}', BACKEND_USERNAME: '${BACKEND_USERNAME}'"
+BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
+BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
+BASE_URL=${BACKEND_KNXD%?}
 
-    # Tell the CometVisu to path to the login
-    echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
-    echo '<FilesMatch "visu_config.*xml$">'                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+echo "Server side configuration parameters:"
+echo "BACKEND_NAME: '${BACKEND_NAME}'"
+echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
+echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
+echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
+echo "CGI_URL_PATH: '${CGI_URL_PATH}' (depreciated)"
+echo "knxd baseURL: '${BASE_URL}'"
+
+# Tell the CometVisu to path to the login
+echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+echo '<FilesMatch "visu_config.*xml$">'                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 if [ x"${BACKEND_NAME}" != x"" ]; then
-    echo "    Header set X-CometVisu-Backend-Name ${BACKEND_NAME}"      >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+    echo "    Header set X-CometVisu-Backend-Name ${BACKEND_NAME}"            >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ x"${BACKEND_URL}" != x"" ]; then
-    echo "    Header set X-CometVisu-Backend-Url ${BACKEND_URL}"        >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+if [ x"${BACKEND_KNXD}" != x"" ]; then
+    echo "    Header set X-CometVisu-Backend-KNXD-Url ${BACKEND_KNXD}"        >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ x"${CGI_URL_PATH:-/cgi-bin/}" != x"/cgi-bin/" ]; then
-    echo "    Header set X-CometVisu-Backend-LoginUrl ${CGI_URL_PATH}l" >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+if [ x"${BACKEND_MQTT}" != x"" ]; then
+    echo "    Header set X-CometVisu-Backend-MQTT-Url ${BACKEND_MQTT}"        >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ x"${BACKEND_USERNAME}" != x"" ]; then
-    echo "    Header set X-CometVisu-Backend-User ${BACKEND_USERNAME}"  >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+if [ x"${BACKEND_OPENHAB}" != x"" ]; then
+    echo "    Header set X-CometVisu-Backend-OpenHAB-Url ${BACKEND_OPENHAB}"  >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 fi
-if [ x"${BACKEND_PASSWORD}" != x"" ]; then
-    echo "    Header set X-CometVisu-Backend-Pass ${BACKEND_PASSWORD}"  >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
-fi
-    echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
+echo '</FilesMatch>'                                                >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
 
-    # Pass CometVisu the resource path during the login
-    sed -i 's@\\\"s\\\":\\\"SESSION\\\".*}\"@\\\"s\\\":\\\"SESSION\\\", \\\"c\\\": {\\\"baseURL\\\": \\\"'"$CGI_URL_PATH"'\\\"} }"@' /usr/lib/cgi-bin/l
-fi
+# Pass CometVisu the resource path during the login
+sed -i 's@\\\"s\\\":\\\"SESSION\\\".*}\"@\\\"s\\\":\\\"SESSION\\\", \\\"c\\\": {\\\"baseURL\\\": \\\"'"$CGI_URL_PATH"'\\\"} }"@' /usr/lib/cgi-bin/l
 
 if [ x"${BACKEND_PROXY_SOURCE}" != x"" ] && [ x"${BACKEND_PROXY_TARGET}" != x"" ]; then
     echo "proxying ${BACKEND_PROXY_SOURCE} -> ${BACKEND_PROXY_TARGET}"

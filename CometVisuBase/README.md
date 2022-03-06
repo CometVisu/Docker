@@ -15,15 +15,15 @@ Environment parameters:
 |Parameter              |Default                  |Description|
 |-----------------------|-------------------------|-----------|
 |BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
-|CGI_URL_PATH           |/cgi-bin/                |Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
+|BACKEND_KNXD           |                         |URL to access the `knxd` backend|
+|BACKEND_MQTT           |                         |URL to access the `mqtt` backend|
+|BACKEND_OPENHAB        |                         |URL to access the `openhab` backend|
+|CGI_URL_PATH           |/cgi-bin/                |**Depreciated:** Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
 |KNX_INTERFACE          |iptn:172.17.0.1:3700     |Special case for `knxd`: information for the knxd to connect to the KNX bus|
 |KNX_PA                 |1.1.238                  |Special case for `knxd`: PA for the knxd|
 |KNXD_PARAMETERS        |-u -d/var/log/eibd.log -c|Special case for `knxd`: additional startup parameters for the knxd|
 |BACKEND_PROXY_SOURCE   |                         |Special case for openHAB: proxy paths starting with this value, e.g. `/rest`|
 |BACKEND_PROXY_TARGET   |                         |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
-|BACKEND_URL            |                         |Special case for `mqtt`: URL to access the backend|
-|BACKEND_USERNAME       |                         |Special case for `mqtt`: user name for the connection to the MQTT broker|
-|BACKEND_PASSWORD       |                         |Special case for `mqtt`: password for the connection to the MQTT broker|
 |STOP_ON_BAD_HEALTH     |false                    |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
 |ACCESS_LOG             |false                    |Show web server access log when set to `true`|
 
@@ -32,27 +32,53 @@ Environment parameters:
 By default the environment variables are configured to setup a KNX connection.
 But make sure that `KNX_INTERFACE` and `KNX_PA` are set correctly.
 
+The environment variable `BACKEND_KNXD` must be the URL to the `l` login script
+of the knxd backend.
+
+Example:
+```
+BACKEND_NAME=knxd
+BACKEND_KNXD=https://server.local/cgi-bin/l
+KNX_INTERFACE=iptn:172.17.0.1:3700
+KNX_PA=1.1.250
+```
+
+**Note:** When `BACKEND_KNXD` and `CGI_URL_PATH` are set at the same time
+the value of `BACKEND_KNXD` is used.
+
 ### openHAB
+
+The environment variable `BACKEND_OPENHAB` must be the URL to the rest-ressouce.
+It might contain a user name and password in the normal URL notation.
 
 Example configuration for an openHAB backend (running on host `192.168.0.10`):
 
 ```
 BACKEND_NAME=openhab
-CGI_URL_PATH=/rest/cv/
+BACKEND_OPENHAB=/rest/cv/
 BACKEND_PROXY_SOURCE=/rest/
 BACKEND_PROXY_TARGET=http://192.168.0.10:8080/rest/
 ```
 
+**Note:** The user name and password are stored in plain text on the Docker server
+as well as in the JavaScript engine of the browser. And when no transport
+encryption is used it is even transported in plaintext over the network.
+
+**Note:** When `BACKEND_OPENHAB` and `CGI_URL_PATH` are set at the same time
+the value of `BACKEND_OPENHAB` is used.
+
 ### MQTT
+
+The environment variable `BACKEND_MQTT` must be the URL to the web socket
+interface of the MQTT broker.
+It might contain a user name and password in the normal URL notation.
 
 Example configuration for an MQTT backend (running on `timberwolf.local` at
 port `443` with secure websockets):
 
 ```
 BACKEND_NAME=mqtt
-BACKEND_URL=wss://timberwolf.local:443/proxy/mqtt/ws
-BACKEND_USERNAME=CometVisuUser
-BACKEND_PASSWORD=Password4MQTTBrokerThatIsNotVerySecure
+BACKEND_MQTT=wss://CometVisuUser:Password4MQTTBrokerThatIsNotVerySecure@timberwolf.local:443/proxy/mqtt/ws
 ```
 
 **Note:** The user name and password are stored in plain text on the Docker server
