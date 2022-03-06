@@ -14,7 +14,7 @@ Environment parameters:
 
 |Parameter              |Default                  |Description|
 |-----------------------|-------------------------|-----------|
-|BACKEND_NAME           |                         |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
+|BACKEND_NAME           |knxd                     |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
 |BACKEND_KNXD           |                         |URL to access the `knxd` backend|
 |BACKEND_MQTT           |                         |URL to access the `mqtt` backend|
 |BACKEND_OPENHAB        |                         |URL to access the `openhab` backend|
