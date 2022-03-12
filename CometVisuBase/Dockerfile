@@ -147,5 +147,5 @@ ENV BACKEND_PROXY_TARGET ""
 
 ENV STOP_ON_BAD_HEALTH true
 
-HEALTHCHECK --interval=120s --timeout=10s --start_period=10s CMD ["healthcheck"]
+HEALTHCHECK --interval=120s --timeout=10s --start-period=10s CMD ["healthcheck"]
 CMD ["apache2-foreground"]
