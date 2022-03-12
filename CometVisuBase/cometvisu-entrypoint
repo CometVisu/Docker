@@ -20,10 +20,10 @@ case "${BACKEND_NAME}" in
             knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
             sleep 0.2
             chmod a+w /tmp/eib
-            echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socket does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ ! -S /tmp/eib ]; then echo 'Error: /tmp/eib is not a socket'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ \`ls -l /tmp/eib | cut -c 2-10\` != \"rwxrwxrwx\" ]; then echo 'Error: /tmp/eib permissions are wrong:'; ls -l /tmp/eib; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -S /tmp/eib ]; then echo 'Error: /tmp/eib is not a socket'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ \`ls -l /tmp/eib | cut -c 2-10\` != \"rwxrwxrwx\" ]; then echo 'Error: /tmp/eib permissions are wrong:'; ls -l /tmp/eib; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         else
             echo "ERROR: knxd backend selected, but KNX_INTERFACE is not set!"
         fi
@@ -41,7 +41,7 @@ echo "BACKEND_NAME: '${BACKEND_NAME}'"
 echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
 echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
 echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
-echo "CGI_URL_PATH: '${CGI_URL_PATH}' (depreciated)"
+echo "CGI_URL_PATH: '${CGI_URL_PATH}' (deprecated)"
 echo "knxd baseURL: '${BASE_URL}'"
 
 # Tell the CometVisu to path to the login
@@ -81,7 +81,7 @@ if [ x"${ACCESS_LOG}" = x"true" ]
     else ln -s /dev/null /var/log/apache2/access.log
 fi
 
-echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 
 # first arg is `-f` or `--some-option`
 if [ x"${1#-}" != x"$1" ]; then
