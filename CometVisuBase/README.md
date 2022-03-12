@@ -17,8 +17,8 @@ Environment parameters:
 |BACKEND_NAME           |knxd                     |Explicitly set a backend name, e.g `openhab`, `mqtt` or `knxd`, not needed if you use the default backend|
 |BACKEND_KNXD           |                         |URL to access the `knxd` backend|
 |BACKEND_MQTT           |                         |URL to access the `mqtt` backend|
-|BACKEND_OPENHAB        |                         |URL to access the `openhab` backend|
-|CGI_URL_PATH           |/cgi-bin/                |**Depreciated:** Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
+|BACKEND_OPENHAB        |                         |Path to the openHAB REST-API|
+|CGI_URL_PATH           |/cgi-bin/                |**Deprecated:** Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
 |KNX_INTERFACE          |iptn:172.17.0.1:3700     |Special case for `knxd`: information for the knxd to connect to the KNX bus|
 |KNX_PA                 |1.1.238                  |Special case for `knxd`: PA for the knxd|
 |KNXD_PARAMETERS        |-u -d/var/log/eibd.log -c|Special case for `knxd`: additional startup parameters for the knxd|
@@ -48,7 +48,7 @@ the value of `BACKEND_KNXD` is used.
 
 ### openHAB
 
-The environment variable `BACKEND_OPENHAB` must be the URL to the rest-ressouce.
+The environment variable `BACKEND_OPENHAB` must be the path to the openHAB REST-API.
 It might contain a user name and password in the normal URL notation.
 
 Example configuration for an openHAB backend (running on host `192.168.0.10`):

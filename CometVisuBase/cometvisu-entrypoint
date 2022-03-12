@@ -18,9 +18,12 @@ case "${BACKEND_NAME}" in
         if [ x"${KNX_INTERFACE}" != x"" ]; then
             echo "starting knxd"
             knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
+            sleep 0.2
             chmod a+w /tmp/eib
             echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socked does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socket does not exist'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -S /tmp/eib ]; then echo 'Error: /tmp/eib is not a socket'; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ \`ls -l /tmp/eib | cut -c 2-10\` != \"rwxrwxrwx\" ]; then echo 'Error: /tmp/eib permissions are wrong:'; ls -l /tmp/eib; \$badhealth; exit 1; fi" >> /usr/local/bin/healthcheck
         else
             echo "ERROR: knxd backend selected, but KNX_INTERFACE is not set!"
         fi
