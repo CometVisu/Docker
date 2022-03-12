@@ -9,6 +9,10 @@ if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
 fi
 
+if [ x"${ADDITIONAL_HEALTHCHECK}" != x"" ]
+    echo "${ADDITIONAL_HEALTHCHECK}" >> /usr/local/bin/healthcheck
+fi
+
 if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
     BACKEND_NAME="knxd"
 fi
