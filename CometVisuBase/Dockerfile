@@ -88,7 +88,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install -y --no-install-recommends rrdtool \
  && apt-get install -y --no-install-recommends libxml2-dev \
  && docker-php-ext-install soap \
- && docker-php-ext-install mysqli && docker-php-ext-enable mysqli \
+ && docker-php-ext-install pdo_mysql \
  && apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
 
