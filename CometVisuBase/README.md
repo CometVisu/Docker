@@ -58,7 +58,7 @@ Example configuration for an openHAB backend (running on host `192.168.0.10`):
 
 ```
 BACKEND_NAME=openhab
-BACKEND_OPENHAB=/rest/cv/
+BACKEND_OPENHAB=/rest/
 BACKEND_PROXY_SOURCE=/rest/
 BACKEND_PROXY_TARGET=http://192.168.0.10:8080/rest/
 ```
