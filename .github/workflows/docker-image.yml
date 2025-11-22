@@ -104,7 +104,10 @@ jobs:
           tags: |
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest-{{date 'YYYY-MM-DD'}},enable={{is_default_branch}}
             type=raw,value=testing,enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            type=raw,value=testing-{{date 'YYYY-MM-DD'}},enable=${{ github.ref == format('refs/heads/{0}', 'develop') }}
+            
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests

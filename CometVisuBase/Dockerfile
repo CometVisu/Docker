@@ -108,9 +108,9 @@ ENV ACCESS_LOG=false
 # add knxtools to PATH (e.g. groupwrite, groupread)
 ENV PATH="$PATH:/usr/lib/knxd"
 
-ENV KNX_INTERFACE=iptn:172.17.0.1:3700
+ENV KNX_INTERFACE=""
 ENV KNX_PA=1.1.238
-ENV KNX_CLIENT_PAS=1.1.239:1
+ENV KNX_CLIENT_PAS=1.1.239:10
 ENV KNXD_PARAMETERS=""
 
 ENV CGI_URL_PATH=/cgi-bin/
