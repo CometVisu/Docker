@@ -1,51 +1,26 @@
-FROM php:8.0-apache-bullseye as builder
+FROM php:8.4-apache-trixie AS builder
 
 ##################
-# Compile knxd 0.0.5.1
+# Compile knxd
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y python python-dev python3-pip python3-virtualenv \
- && apt-get install -y build-essential gcc git rsync cmake make g++ binutils automake autoconf flex bison patch wget libtool \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
-
-ENV KNXDIR /usr
-ENV INSTALLDIR $KNXDIR/local
-ENV SOURCEDIR  $KNXDIR/src
-ENV LD_LIBRARY_PATH $INSTALLDIR/lib
+ && apt-get install --no-install-recommends git sudo --yes
+ 
+ENV KNXDIR=/usr
+ENV INSTALLDIR=$KNXDIR/local
+ENV SOURCEDIR=$KNXDIR/src
+ENV LD_LIBRARY_PATH=$INSTALLDIR/lib
 
 WORKDIR $SOURCEDIR
 
-# build pthsem
-ENV PTHSEM_DOWNLOAD_SHA256 4024cafdd5d4bce2b1778a6be5491222c3f6e7ef1e43971264c451c0012c5c01
-RUN cd $SOURCEDIR \
- && wget -O pthsem_2.0.8.tar.gz "https://osdn.net/frs/g_redir.php?m=kent&f=bcusdk%2Fpthsem%2Fpthsem_2.0.8.tar.gz" \
- && echo "$PTHSEM_DOWNLOAD_SHA256 pthsem_2.0.8.tar.gz" | sha256sum -c - \
- && tar -xzf pthsem_2.0.8.tar.gz \
- && cd pthsem-2.0.8 && wget -O config.guess "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.guess;hb=c179db1b6f2ae484bfca1e9f8bae273e3319fa7d" \
- && wget -O config.sub "http://git.savannah.gnu.org/gitweb/?p=config.git;a=blob_plain;f=config.sub;hb=c179db1b6f2ae484bfca1e9f8bae273e3319fa7d" \
- && ./configure --prefix=$INSTALLDIR/ \
- && ls -l -A \
- && make \
- && make test \
- && make install
-
 # build knxd
-ENV KNXD_DOWNLOAD_SHA256 f47a02efd8618dc1ec5837e08017dabbaa2712a9b9c36af7784426cc9429455e
 RUN cd $SOURCEDIR \
- && wget -O knxd_0.0.5.1.tar.gz "https://github.com/knxd/knxd/archive/0.0.5.1.tar.gz" \
- && echo "$KNXD_DOWNLOAD_SHA256 knxd_0.0.5.1.tar.gz" | sha256sum -c - \
- && tar -xzf knxd_0.0.5.1.tar.gz \
- && cd knxd-0.0.5.1 && ./bootstrap.sh \
- && ./configure --enable-onlyeibd --enable-eibnetip --enable-eibnetiptunnel --disable-eibnetipserver \
-    --disable-ft12 --disable-pei16 --disable-tpuart --disable-pei16s  --disable-tpuarts --disable-usb --disable-ncn5120 \
-    --enable-groupcache --disable-java \
-    --disable-shared --enable-static \
-    --prefix=$INSTALLDIR/ --with-pth=$INSTALLDIR/ \
- && make && make install
+ && git clone -b debian https://github.com/knxd/knxd.git \
+ && cd knxd \
+ && sh ./install-debian.sh
 
 ##############
 # Run environment
-FROM php:8.0-apache-bullseye
+FROM php:8.4-apache-trixie
 
 # clear upstream spilled ENV
 ENV PHPIZE_DEPS=
@@ -63,8 +38,7 @@ ARG VCS_REF
 
 # Own labels
 LABEL maintainer="https://www.cometvisu.org/"
-LABEL org.cometvisu.pthsem.version="2.0.8"
-LABEL org.cometvisu.knxd.version="0.0.5.1"
+LABEL org.cometvisu.knxd.version="0.14.74"
 LABEL org.cometvisu.cometvisubase.version="$BUILD_DATE-$VCS_REF"
 # Labels according to http://label-schema.org/rc1/
 LABEL org.label-schema.schema-version="1.0"
@@ -78,16 +52,15 @@ LABEL org.label-schema.vcs-ref=$VCS_REF
 LABEL org.label-schema.vendor="The CometVisu project"
 LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 
-COPY --from=builder /usr/local/bin/knxd /usr/bin/knxd
-COPY --from=builder /usr/local/lib/libpthsem.so.20 /usr/lib/
-COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/busmonitor1 /usr/src/knxd-0.0.5.1/src/examples/vbusmonitor1 /usr/src/knxd-0.0.5.1/src/examples/vbusmonitor1time /usr/src/knxd-0.0.5.1/src/examples/vbusmonitor2 /usr/src/knxd-0.0.5.1/src/examples/groupswrite /usr/src/knxd-0.0.5.1/src/examples/groupwrite /usr/src/knxd-0.0.5.1/src/examples/groupread /usr/src/knxd-0.0.5.1/src/examples/groupreadresponse /usr/src/knxd-0.0.5.1/src/examples/groupcacheread /usr/src/knxd-0.0.5.1/src/examples/groupsocketread /usr/local/bin/
-COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/eibread-cgi /usr/lib/cgi-bin/r
-COPY --from=builder /usr/src/knxd-0.0.5.1/src/examples/eibwrite-cgi /usr/lib/cgi-bin/w
+#COPY --from=builder /usr/local/bin/knxd /usr/bin/knxd
+COPY --from=builder /usr/src/knxd_*.deb /usr/src/knxd-tools_*.deb /tmp/
+#COPY --from=builder /usr/src/knxd-0.14.74/src/examples/eibread-cgi /usr/lib/cgi-bin/r
+#COPY --from=builder /usr/src/knxd-0.14.74/src/examples/eibwrite-cgi /usr/lib/cgi-bin/w
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y --no-install-recommends rrdtool \
- && apt-get install -y --no-install-recommends libxml2-dev \
+ && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
  && docker-php-ext-install soap \
+ && dpkg -i /tmp/knxd_*.deb /tmp/knxd-tools_*.deb \
  && docker-php-ext-install pdo_mysql \
  && apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
@@ -132,21 +105,21 @@ RUN { \
 COPY cometvisu-entrypoint /usr/local/bin/cometvisu-entrypoint
 ENTRYPOINT ["cometvisu-entrypoint"]
 
-ENV ACCESS_LOG false
+ENV ACCESS_LOG=false
 
-ENV KNX_INTERFACE iptn:172.17.0.1:3700
-ENV KNX_PA 1.1.238
-ENV KNXD_PARAMETERS -u -d/dev/stdout -c
+ENV KNX_INTERFACE=iptn:172.17.0.1:3700
+ENV KNX_PA=1.1.238
+ENV KNXD_PARAMETERS="-u -d/dev/stdout -c"
 
-ENV CGI_URL_PATH /cgi-bin/
-ENV BACKEND_NAME "knxd"
-ENV BACKEND_KNXD ""
-ENV BACKEND_MQTT ""
-ENV BACKEND_OPENHAB ""
-ENV BACKEND_PROXY_SOURCE ""
-ENV BACKEND_PROXY_TARGET ""
+ENV CGI_URL_PATH=/cgi-bin/
+ENV BACKEND_NAME="knxd"
+ENV BACKEND_KNXD=""
+ENV BACKEND_MQTT=""
+ENV BACKEND_OPENHAB=""
+ENV BACKEND_PROXY_SOURCE=""
+ENV BACKEND_PROXY_TARGET=""
 
-ENV STOP_ON_BAD_HEALTH true
+ENV STOP_ON_BAD_HEALTH=true
 
 HEALTHCHECK --interval=120s --timeout=10s --start-period=10s CMD ["healthcheck"]
 CMD ["apache2-foreground"]

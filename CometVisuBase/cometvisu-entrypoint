@@ -23,11 +23,11 @@ case "${BACKEND_NAME}" in
             echo "starting knxd"
             knxd -i $KNX_INTERFACE -e $KNX_PA $KNXD_PARAMETERS
             sleep 0.2
-            chmod a+w /tmp/eib
+            chmod a+w /run/knx
             echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ ! -e /tmp/eib ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ ! -S /tmp/eib ]; then echo 'Error: /tmp/eib is not a socket'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-            echo "if [ \`ls -l /tmp/eib | cut -c 2-10\` != \"rwxrwxrwx\" ]; then echo 'Error: /tmp/eib permissions are wrong:'; ls -l /tmp/eib; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ ! -S /run/knx ]; then echo 'Error: /run/knx is not a socket'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+            echo "if [ \`ls -l /run/knx | cut -c 2-10\` != \"rwxrwxrwx\" ]; then echo 'Error: /run/knx permissions are wrong:'; ls -l /run/knx; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         else
             echo "ERROR: knxd backend selected, but KNX_INTERFACE is not set!"
         fi
