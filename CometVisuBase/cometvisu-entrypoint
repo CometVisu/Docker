@@ -22,12 +22,14 @@ case "${BACKEND_NAME}" in
         if [ "${KNXD_PARAMETERS}" != "" ]; then
             echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
         else
-            KNXD_PARAMETERS="-i ${KNX_INTERFACE} -e ${KNX_PA} -E ${KNX_CLIENT_PAS} -u -d/var/log/eibd.log -c"
+            KNXD_PARAMETERS="-e ${KNX_PA} -E ${KNX_CLIENT_PAS} -u -d/var/log/knxd.log -c -B single -b ${KNX_INTERFACE}"
             echo "creating knxd config file from single parameters (${KNXD_PARAMETERS})"
         fi
         /usr/lib/knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
         echo -n "starting knxd - version: " && knxd --version
         knxd /etc/knxd.conf
+        sleep 0.2
+        chmod a+w /run/knx
         echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         ;;
