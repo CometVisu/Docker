@@ -27,8 +27,8 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     /usr/lib/knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
     echo -n "starting knxd - version: " && knxd --version
     knxd /etc/knxd.conf
-    sleep 0.2
-    chmod a+w /run/knx
+    sleep 2.0
+    chmod 777 /run/knx
     echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
     echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 fi
