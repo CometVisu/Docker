@@ -52,10 +52,7 @@ LABEL org.label-schema.vcs-ref=$VCS_REF
 LABEL org.label-schema.vendor="The CometVisu project"
 LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 
-#COPY --from=builder /usr/local/bin/knxd /usr/bin/knxd
 COPY --from=builder /usr/src/knxd_*.deb /usr/src/knxd-tools_*.deb /tmp/
-#COPY --from=builder /usr/src/knxd-0.14.74/src/examples/eibread-cgi /usr/lib/cgi-bin/r
-#COPY --from=builder /usr/src/knxd-0.14.74/src/examples/eibwrite-cgi /usr/lib/cgi-bin/w
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
@@ -64,6 +61,8 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && docker-php-ext-install pdo_mysql \
  && apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
+RUN cp /usr/lib/knxd/eibread-cgi /usr/lib/cgi-bin/r \
+   && cp /usr/lib/knxd/eibwrite-cgi /usr/lib/cgi-bin/w
 
 ##################
 
@@ -106,10 +105,13 @@ COPY cometvisu-entrypoint /usr/local/bin/cometvisu-entrypoint
 ENTRYPOINT ["cometvisu-entrypoint"]
 
 ENV ACCESS_LOG=false
+# add knxtools to PATH (e.g. groupwrite, groupread)
+ENV PATH="$PATH:/usr/lib/knxd"
 
 ENV KNX_INTERFACE=iptn:172.17.0.1:3700
 ENV KNX_PA=1.1.238
-ENV KNXD_PARAMETERS="-u -d/dev/stdout -c"
+ENV KNX_CLIENT_PAS=1.1.239:1
+ENV KNXD_PARAMETERS=""
 
 ENV CGI_URL_PATH=/cgi-bin/
 ENV BACKEND_NAME="knxd"
@@ -120,6 +122,8 @@ ENV BACKEND_PROXY_SOURCE=""
 ENV BACKEND_PROXY_TARGET=""
 
 ENV STOP_ON_BAD_HEALTH=true
+
+EXPOSE 80/tcp
 
 HEALTHCHECK --interval=120s --timeout=10s --start-period=10s CMD ["healthcheck"]
 CMD ["apache2-foreground"]
