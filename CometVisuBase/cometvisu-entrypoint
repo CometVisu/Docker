@@ -4,6 +4,9 @@ set -e
 echo "#!/bin/sh" >  /usr/local/bin/healthcheck
 chmod a+x /usr/local/bin/healthcheck
 
+NO_ENTRYPOINT_APACHE=${NO_ENTRYPOINT_APACHE:-false}
+NO_ENTRYPOINT_KNXD=${NO_ENTRYPOINT_KNXD:-false}
+
 if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     then echo "badhealth='apachectl stop'" >> /usr/local/bin/healthcheck
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
@@ -25,18 +28,21 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "creating knxd config file from single parameters (${KNXD_PARAMETERS})"
     fi
     /usr/lib/knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
-    echo -n "starting knxd - version: " && knxd --version
-    knxd /etc/knxd.conf
-    sleep 5
-    if [ ! -S "/run/knx" ]; then 
-        echo 'Error: knxd socket does not exist'; 
-        ls -la /run;
-        cat /var/log/knxd.log;
-        exit 1; 
+    
+    if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
+        echo -n "starting knxd - version: " && knxd --version
+        knxd /etc/knxd.conf
+        sleep 5
+        if [ ! -S "/run/knx" ]; then 
+            echo 'Error: knxd socket does not exist'; 
+            ls -la /run;
+            cat /var/log/knxd.log;
+            exit 1; 
+        fi
+        chmod a+rwx /run/knx
+        echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
     fi
-    chmod a+rwx /run/knx
-    echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-    echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 fi
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
@@ -44,7 +50,6 @@ CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
 BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
 BASE_URL=${BACKEND_KNXD%?}
-NO_ENTRYPOINT_APACHE=${NO_ENTRYPOINT_APACHE:-false}
 
 echo "Server side configuration parameters:"
 echo "BACKEND_NAME: '${BACKEND_NAME}'"
@@ -85,7 +90,7 @@ if [ x"${BACKEND_PROXY_SOURCE}" != x"" ] && [ x"${BACKEND_PROXY_TARGET}" != x"" 
     a2enconf cv-proxy.conf > /dev/null
 fi
 
-if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then   
+if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
 
     if [ -f "/var/log/apache2/access.log" ]; then
         rm /var/log/apache2/access.log
