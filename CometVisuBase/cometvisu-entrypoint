@@ -31,11 +31,13 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         KNXD_PARAMETERS="-e ${KNX_PA} -E ${KNX_CLIENT_PAS} -u${KNX_DAEMON_OPTIONS} -c ${KNX_INTERFACE_OPTIONS} -b ${KNX_INTERFACE}"
         echo "creating knxd config file from single parameters (${KNXD_PARAMETERS})"
     fi
-    /usr/lib/knxd_args ${KNXD_PARAMETERS} > /etc/knxd.conf
+    /usr/lib/knxd_args ${KNXD_PARAMETERS} > /etc/knxd.ini
+    # modify knxd.conf to use knxd.ini
+    sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
         echo -n "starting knxd - version: " && knxd --version
-        knxd /etc/knxd.conf
+        knxd /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
             echo 'Error: knxd socket does not exist'; 
