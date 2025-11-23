@@ -25,7 +25,7 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
     else
         KNX_DAEMON_OPTIONS=""
-        if [ x"${NO_ENTRYPOINT_KNXD}" = x"true" ]; then
+        if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
             KNX_DAEMON_OPTIONS=" -d/var/log/knxd.log"
         fi
         KNXD_PARAMETERS="-e ${KNX_PA} -E ${KNX_CLIENT_PAS} -u${KNX_DAEMON_OPTIONS} -c ${KNX_INTERFACE_OPTIONS} -b ${KNX_INTERFACE}"
