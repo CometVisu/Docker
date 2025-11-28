@@ -23,6 +23,10 @@ fi
 if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     if [ "${KNXD_PARAMETERS}" != "" ]; then
         echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
+        echo ""
+        echo "NOTE: we can't check whether your KNXD_PARAMETERS is valid. When the" 
+        echo "knxd doesn't start up a bad KNXD_PARAMETERS is most likely the case."
+        echp "Consider to remove it and use the individual options instead!"
     else
         BAD_KNXD_CONFIG="false"
         if [ x"${KNX_PA}" = x"" ]; then
@@ -65,14 +69,12 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
             ls -la /run;
             echo '/var/log/knxd.log:'
             cat /var/log/knxd.log || true
-            ########### TEMP
-            #exit 1; 
+            exit 1; 
         fi
         chmod a+rwx /run/knx || true
 
-        ########### TEMP - disable extended health checking!!!
-        #echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-        #echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
     fi
 fi
 
@@ -123,8 +125,8 @@ fi
 
 if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
 
-    if [ -f "/var/log/apache2/access.log" ]; then
-        rm /var/log/apache2/access.log
+    if [ -e "/var/log/apache2/access.log" ]; then
+        rm -f /var/log/apache2/access.log
     fi
 
     if [ x"${ACCESS_LOG}" = x"true" ]
