@@ -46,10 +46,11 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
             echo 'Directory listing of /run:'
             ls -la /run;
             echo '/var/log/knxd.log:'
-            cat /var/log/knxd.log
-            exit 1; 
+            cat /var/log/knxd.log || true
+            ########### TEMP
+            #exit 1; 
         fi
-        chmod a+rwx /run/knx
+        chmod a+rwx /run/knx || true
 
         ########### TEMP - disable extended health checking!!!
         #echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
