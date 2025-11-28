@@ -24,6 +24,24 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     if [ "${KNXD_PARAMETERS}" != "" ]; then
         echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
     else
+        BAD_KNXD_CONFIG="false"
+        if [ x"${KNX_PA}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${KNX_CLIENT_PAS}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${KNX_INTERFACE}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${BAD_KNXD_CONFIG}" = x"true" ]; then
+            echo 'FATAL ERROR: stopping, as no valid knxd config given.'
+            exit 1
+        fi
+
         KNX_DAEMON_OPTIONS=""
         if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
             KNX_DAEMON_OPTIONS=" -d/var/log/knxd.log"
