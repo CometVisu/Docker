@@ -120,7 +120,7 @@ if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
     if [ x"${1#-}" != x"$1" ]; then
         set -- apache2-foreground "$@"
     fi
-
-    echo "running '$@'..."
-    exec "$@"
-fi;
+fi
+  
+echo "running '$@'..."
+exec "$@"
