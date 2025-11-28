@@ -36,7 +36,7 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo -n "starting knxd - version: " && knxd --version
+        echo -n "starting knxd - version: " && /usr/bin/knxd --version
         /usr/bin/knxd /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
