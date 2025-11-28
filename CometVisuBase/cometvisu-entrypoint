@@ -37,12 +37,16 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
         echo -n "starting knxd - version: " && knxd --version
-        knxd /etc/knxd.ini
+        /usr/bin/knxd /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
-            echo 'Error: knxd socket does not exist'; 
+            echo 'Error: knxd socket does not exist'
+            echo 'Running processes:'
+            ps aux | grep knxd
+            echo 'Directory listing of /run:'
             ls -la /run;
-            cat /var/log/knxd.log;
+            echo '/var/log/knxd.log:'
+            cat /var/log/knxd.log
             exit 1; 
         fi
         chmod a+rwx /run/knx
