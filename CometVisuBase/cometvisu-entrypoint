@@ -26,7 +26,7 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo ""
         echo "NOTE: we can't check whether your KNXD_PARAMETERS is valid. When the" 
         echo "knxd doesn't start up a bad KNXD_PARAMETERS is most likely the case."
-        echp "Consider to remove it and use the individual options instead!"
+        echo "Consider to remove it and use the individual options instead!"
     else
         BAD_KNXD_CONFIG="false"
         if [ x"${KNX_PA}" = x"" ]; then
