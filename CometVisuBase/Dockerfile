@@ -1,22 +1,22 @@
 FROM php:8.5-apache-trixie AS builder
 
 ##################
-# Compile knxd
+# Compile knxd (without systemd)
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install --no-install-recommends git sudo --yes
- 
-ENV KNXDIR=/usr
-ENV INSTALLDIR=$KNXDIR/local
-ENV SOURCEDIR=$KNXDIR/src
-ENV LD_LIBRARY_PATH=$INSTALLDIR/lib
+ && apt-get install --no-install-recommends -y \
+    git build-essential autoconf automake libtool \
+    pkg-config libev-dev libfmt-dev libinih-dev libusb-1.0-0-dev
+
+ENV SOURCEDIR=/usr/src
 
 WORKDIR $SOURCEDIR
 
-# build knxd
-RUN cd $SOURCEDIR \
- && git clone -b debian https://github.com/knxd/knxd.git \
+RUN git clone -b debian https://github.com/knxd/knxd.git \
  && cd knxd \
- && sh ./install-debian.sh
+ && sh ./bootstrap.sh \
+ && ./configure --disable-systemd --prefix=/usr --sysconfdir=/etc --libexecdir=/usr/lib \
+ && make -j$(nproc) \
+ && make install DESTDIR=/tmp/knxd-install
 
 ##############
 # Run environment
@@ -38,7 +38,7 @@ ARG VCS_REF
 
 # Own labels
 LABEL maintainer="https://www.cometvisu.org/"
-LABEL org.cometvisu.knxd.version="0.14.74"
+LABEL org.cometvisu.knxd.version="0.14.75"
 LABEL org.cometvisu.cometvisubase.version="$BUILD_DATE-$VCS_REF"
 # Labels according to http://label-schema.org/rc1/
 LABEL org.label-schema.schema-version="1.0"
@@ -52,14 +52,14 @@ LABEL org.label-schema.vcs-ref=$VCS_REF
 LABEL org.label-schema.vendor="The CometVisu project"
 LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 
-COPY --from=builder /usr/src/knxd_*.deb /usr/src/knxd-tools_*.deb /tmp/
+COPY --from=builder /tmp/knxd-install/usr/ /usr/
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
  && docker-php-ext-install soap \
- && dpkg -i /tmp/knxd_*.deb /tmp/knxd-tools_*.deb \
  && docker-php-ext-install pdo_mysql \
- && apt-get clean; rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
 RUN cp /usr/lib/knxd/eibread-cgi /usr/lib/cgi-bin/r \
    && cp /usr/lib/knxd/eibwrite-cgi /usr/lib/cgi-bin/w

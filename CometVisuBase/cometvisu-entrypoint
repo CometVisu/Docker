@@ -98,13 +98,9 @@ fi
 
 if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
 
-    if [ -f "/var/log/apache2/access.log" ]; then
-        rm /var/log/apache2/access.log
-    fi
-
     if [ x"${ACCESS_LOG}" = x"true" ]
-        then ln -s /dev/stdout /var/log/apache2/access.log
-        else ln -s /dev/null /var/log/apache2/access.log
+        then ln -f -s /dev/stdout /var/log/apache2/access.log
+        else ln -f -s /dev/null /var/log/apache2/access.log
     fi
 
     echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
