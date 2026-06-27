@@ -50,6 +50,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Compute build args
+        id: build-args
+        run: |
+          echo "build-date=$(date -u +'%Y-%m-%dT%H:%M:%S.%6N%:z')" >> $GITHUB_OUTPUT
+          echo "git-rev=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          KNXD_REV=$(git ls-remote https://github.com/knxd/knxd.git refs/heads/debian | cut -c1-7)
+          echo "knxd-git-rev=${KNXD_REV}" >> $GITHUB_OUTPUT
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
@@ -60,6 +68,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ env.REGISTRY_IMAGE }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            BUILD_DATE_COMETVISUBASE=${{ steps.build-args.outputs.build-date }}
+            GIT_REV_COMETVISUBASE=${{ steps.build-args.outputs.git-rev }}
+            GIT_REV_KNXD=${{ steps.build-args.outputs.knxd-git-rev }}
 
       - name: Export digest
         run: |

@@ -16,7 +16,8 @@ RUN git clone -b debian https://github.com/knxd/knxd.git \
  && sh ./bootstrap.sh \
  && ./configure --disable-systemd --prefix=/usr --sysconfdir=/etc --libexecdir=/usr/lib \
  && make -j$(nproc) \
- && make install DESTDIR=/tmp/knxd-install
+ && make install DESTDIR=/tmp/knxd-install \
+ && git rev-parse --short HEAD > /tmp/knxd-git-rev
 
 ##############
 # Run environment
@@ -32,14 +33,30 @@ ENV PHP_URL=
 ENV PHP_ASC_URL=
 ENV PHP_SHA256=
 
+# install the non changing parts
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
+ && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
+ && docker-php-ext-install soap \
+ && docker-php-ext-install pdo_mysql \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
+
 # set by the automated build at DockerHub
 ARG BUILD_DATE
 ARG VCS_REF
+
+# Build-time arguments provided by CI or local build script
+ARG BUILD_DATE_COMETVISUBASE
+ARG GIT_REV_COMETVISUBASE
+ARG GIT_REV_KNXD
 
 # Own labels
 LABEL maintainer="https://www.cometvisu.org/"
 LABEL org.cometvisu.knxd.version="0.14.75"
 LABEL org.cometvisu.cometvisubase.version="$BUILD_DATE-$VCS_REF"
+LABEL org.cometvisu.cometvisubase.build-date="$BUILD_DATE_COMETVISUBASE"
+LABEL org.cometvisu.cometvisubase.git-rev="$GIT_REV_COMETVISUBASE"
+LABEL org.cometvisu.knxd.git-rev="$GIT_REV_KNXD"
 # Labels according to http://label-schema.org/rc1/
 LABEL org.label-schema.schema-version="1.0"
 LABEL org.label-schema.build-date=$BUILD_DATE
@@ -53,13 +70,9 @@ LABEL org.label-schema.vendor="The CometVisu project"
 LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 
 COPY --from=builder /tmp/knxd-install/usr/ /usr/
+COPY --from=builder /usr/src/knxd/systemd/knxd.conf /etc/knxd.conf
+COPY --from=builder /tmp/knxd-git-rev /usr/share/knxd/git-rev
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
- && docker-php-ext-install soap \
- && docker-php-ext-install pdo_mysql \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
 RUN cp /usr/lib/knxd/eibread-cgi /usr/lib/cgi-bin/r \
    && cp /usr/lib/knxd/eibwrite-cgi /usr/lib/cgi-bin/w
