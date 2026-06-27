@@ -1,4 +1,4 @@
-FROM php:8.4-apache-trixie AS builder
+FROM php:8.5-apache-trixie AS builder
 
 ##################
 # Compile knxd
@@ -20,7 +20,7 @@ RUN cd $SOURCEDIR \
 
 ##############
 # Run environment
-FROM php:8.4-apache-trixie
+FROM php:8.5-apache-trixie
 
 # clear upstream spilled ENV
 ENV PHPIZE_DEPS=
