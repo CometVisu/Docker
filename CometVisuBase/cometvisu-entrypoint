@@ -48,20 +48,21 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         chmod a+rwx /run/knx
         echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+
+        # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
+        FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
+        echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
+        FCGI_SOCKET=${FCGI_SOCKET} cometvisu-knxd-fcgi &
+        sleep 2
+        if [ ! -S "${FCGI_SOCKET}" ]; then
+            echo "Error: cometvisu-knxd-fcgi socket does not exist at ${FCGI_SOCKET}";
+            exit 1;
+        fi
+        chmod a+rwx "${FCGI_SOCKET}"
+        echo "if ! pidof cometvisu-knxd-fcgi >/dev/null; then echo 'Error: cometvisu-knxd-fcgi not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -e ${FCGI_SOCKET} ]; then echo 'Error: cometvisu-knxd-fcgi socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
     fi
 fi
-
-# Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
-FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
-echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
-FCGI_SOCKET=${FCGI_SOCKET} cometvisu-knxd-fcgi &
-sleep 2
-if [ ! -S "${FCGI_SOCKET}" ]; then
-    echo "Error: cometvisu-knxd-fcgi socket does not exist at ${FCGI_SOCKET}";
-    exit 1;
-fi
-chmod a+rwx "${FCGI_SOCKET}"
-echo "if [ ! -e ${FCGI_SOCKET} ]; then echo 'Error: cometvisu-knxd-fcgi socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
