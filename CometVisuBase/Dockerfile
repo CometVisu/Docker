@@ -23,7 +23,7 @@ RUN git clone -b debian https://github.com/knxd/knxd.git \
 # Build cometvisu-knxd-fcgi (FastCGI backend for CometVisu Protocol)
 RUN git clone https://github.com/CometVisu/cometvisu-knxd-fcgi.git \
  && cd cometvisu-knxd-fcgi \
- && cmake -B build -DCMAKE_BUILD_TYPE=Release -DKNXD_SOURCE_DIR=$SOURCEDIR/knxd \
+ && cmake -B build -DCMAKE_BUILD_TYPE=Release -DKNXD_SOURCE_DIR=$SOURCEDIR/knxd/src \
  && cmake --build build -j$(nproc) \
  && cmake --install build --prefix /tmp/cometvisu-knxd-fcgi-install \
  && ./build/src/cometvisu-knxd-fcgi --version | awk '{print $NF}' > /tmp/knxd-fcgi-version \
