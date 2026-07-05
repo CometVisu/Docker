@@ -30,29 +30,43 @@ jobs:
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
+        with:
+          cache-image: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Compute build args
+        id: build-args
+        run: |
+          echo "build-date=$(date -u +'%Y-%m-%dT%H:%M:%S.%6N%:z')" >> $GITHUB_OUTPUT
+          echo "git-rev=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          KNXD_REV=$(git ls-remote https://github.com/knxd/knxd.git refs/heads/debian | cut -c1-7)
+          echo "knxd-git-rev=${KNXD_REV}" >> $GITHUB_OUTPUT
+          KNXD_FCGI_VERSION=$(curl -sL https://raw.githubusercontent.com/CometVisu/cometvisu-knxd-fcgi/main/CMakeLists.txt | grep -oP 'VERSION\s+\K[0-9.]+')
+          echo "knxd-fcgi-version=${KNXD_FCGI_VERSION}" >> $GITHUB_OUTPUT
+          KNXD_FCGI_REV=$(git ls-remote https://github.com/CometVisu/cometvisu-knxd-fcgi.git refs/heads/main | cut -c1-7)
+          echo "knxd-fcgi-git-rev=${KNXD_FCGI_REV}" >> $GITHUB_OUTPUT
+
       - name: Build and push by digest
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./CometVisuBase
           file: CometVisuBase/Dockerfile
@@ -60,6 +74,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ env.REGISTRY_IMAGE }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+          build-args: |
+            BUILD_DATE_COMETVISUBASE=${{ steps.build-args.outputs.build-date }}
+            GIT_REV_COMETVISUBASE=${{ steps.build-args.outputs.git-rev }}
+            GIT_REV_KNXD=${{ steps.build-args.outputs.knxd-git-rev }}
+            KNXD_FCGI_VERSION=${{ steps.build-args.outputs.knxd-fcgi-version }}
+            GIT_REV_KNXD_FCGI=${{ steps.build-args.outputs.knxd-fcgi-git-rev }}
 
       - name: Export digest
         run: |
@@ -68,7 +88,7 @@ jobs:
           touch "${{ runner.temp }}/digests/${digest#sha256:}"
 
       - name: Upload digest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digests-${{ env.PLATFORM_PAIR }}
           path: ${{ runner.temp }}/digests/*
@@ -81,24 +101,24 @@ jobs:
       - build
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
           merge-multiple: true
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_IMAGE }}
           tags: |
