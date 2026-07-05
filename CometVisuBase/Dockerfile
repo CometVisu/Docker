@@ -45,7 +45,7 @@ ENV PHP_SHA256=
 
 # install the non changing parts
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0t64 libapache2-mod-fcgid \
+ && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0t64 \
  && docker-php-ext-install soap \
  && docker-php-ext-install pdo_mysql \
  && apt-get clean \
@@ -120,22 +120,14 @@ RUN { \
  && chmod +x /usr/lib/cgi-bin/rrdfetch \
  && a2enmod cgi \
  && a2enmod headers \
- && a2enmod fcgid \
+ && a2enmod proxy \
+ && a2enmod proxy_fcgi \
  && { \
-    echo 'FcgidWrapper /usr/local/bin/cometvisu-knxd-fcgi virtual'; \
-    echo 'FcgidCmdOptions /usr/local/bin/cometvisu-knxd-fcgi \'; \
-    echo '  IOTimeout 310 \'; \
-    echo '  MaxProcesses 1 \'; \
-    echo '  MinProcesses 1 \'; \
-    echo '  ProcessLifeTime 0 \'; \
-    echo '  IdleTimeout 600'; \
+    echo '# Proxy FastCGI requests to the standalone cometvisu-knxd-fcgi Unix socket'; \
+    echo 'ProxyPass "/cgi-bin/l" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/l"'; \
+    echo 'ProxyPass "/cgi-bin/r" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/r"'; \
+    echo 'ProxyPass "/cgi-bin/w" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/w"'; \
     } | tee "$APACHE_CONFDIR/conf-available/cv-knxd-fcgi.conf" \
- && { \
-    echo '<LocationMatch "^/cgi-bin/(l|r|w)$">'; \
-    echo '    SetHandler fcgid-script'; \
-    echo '    Options +ExecCGI'; \
-    echo '</LocationMatch>'; \
-    } | tee -a "$APACHE_CONFDIR/conf-available/cv-knxd-fcgi.conf" \
  && a2enconf cv-knxd-fcgi
 
 COPY cometvisu-entrypoint /usr/local/bin/cometvisu-entrypoint
@@ -151,6 +143,7 @@ ENV KNX_PA=1.1.238
 ENV KNX_CLIENT_PAS=1.1.239:10
 ENV KNXD_PARAMETERS=""
 
+ENV FCGI_SOCKET=/run/cometvisu-fcgi.sock
 ENV CGI_URL_PATH=/cgi-bin/
 ENV BACKEND_NAME="knxd"
 ENV BACKEND_KNXD=""
