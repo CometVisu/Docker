@@ -6,7 +6,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install --no-install-recommends -y \
     git build-essential autoconf automake libtool \
     pkg-config libev-dev libfmt-dev libinih-dev libusb-1.0-0-dev \
-    cmake libfcgi-dev
+    cmake libfcgi-dev sudo
 
 ENV SOURCEDIR=/usr/src
 
