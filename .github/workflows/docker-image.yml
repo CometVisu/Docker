@@ -59,6 +59,10 @@ jobs:
           echo "git-rev=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           KNXD_REV=$(git ls-remote https://github.com/knxd/knxd.git refs/heads/debian | cut -c1-7)
           echo "knxd-git-rev=${KNXD_REV}" >> $GITHUB_OUTPUT
+          KNXD_FCGI_VERSION=$(curl -sL https://raw.githubusercontent.com/CometVisu/cometvisu-knxd-fcgi/main/CMakeLists.txt | grep -oP 'VERSION\s+\K[0-9.]+')
+          echo "knxd-fcgi-version=${KNXD_FCGI_VERSION}" >> $GITHUB_OUTPUT
+          KNXD_FCGI_REV=$(git ls-remote https://github.com/CometVisu/cometvisu-knxd-fcgi.git refs/heads/main | cut -c1-7)
+          echo "knxd-fcgi-git-rev=${KNXD_FCGI_REV}" >> $GITHUB_OUTPUT
 
       - name: Build and push by digest
         id: build
@@ -74,6 +78,8 @@ jobs:
             BUILD_DATE_COMETVISUBASE=${{ steps.build-args.outputs.build-date }}
             GIT_REV_COMETVISUBASE=${{ steps.build-args.outputs.git-rev }}
             GIT_REV_KNXD=${{ steps.build-args.outputs.knxd-git-rev }}
+            KNXD_FCGI_VERSION=${{ steps.build-args.outputs.knxd-fcgi-version }}
+            GIT_REV_KNXD_FCGI=${{ steps.build-args.outputs.knxd-fcgi-git-rev }}
 
       - name: Export digest
         run: |

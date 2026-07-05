@@ -5,7 +5,8 @@ FROM php:8.5-apache-trixie AS builder
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install --no-install-recommends -y \
     git build-essential autoconf automake libtool \
-    pkg-config libev-dev libfmt-dev libinih-dev libusb-1.0-0-dev
+    pkg-config libev-dev libfmt-dev libinih-dev libusb-1.0-0-dev \
+    cmake libfcgi-dev
 
 ENV SOURCEDIR=/usr/src
 
@@ -18,6 +19,15 @@ RUN git clone -b debian https://github.com/knxd/knxd.git \
  && make -j$(nproc) \
  && make install DESTDIR=/tmp/knxd-install \
  && git rev-parse --short HEAD > /tmp/knxd-git-rev
+
+# Build cometvisu-knxd-fcgi (FastCGI backend for CometVisu Protocol)
+RUN git clone https://github.com/CometVisu/cometvisu-knxd-fcgi.git \
+ && cd cometvisu-knxd-fcgi \
+ && cmake -B build -DCMAKE_BUILD_TYPE=Release -DKNXD_SOURCE_DIR=$SOURCEDIR/knxd \
+ && cmake --build build -j$(nproc) \
+ && cmake --install build --prefix /tmp/cometvisu-knxd-fcgi-install \
+ && ./build/src/cometvisu-knxd-fcgi --version | awk '{print $NF}' > /tmp/knxd-fcgi-version \
+ && git rev-parse --short HEAD > /tmp/knxd-fcgi-git-rev
 
 ##############
 # Run environment
@@ -35,7 +45,7 @@ ENV PHP_SHA256=
 
 # install the non changing parts
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 \
+ && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0ldbl libapache2-mod-fcgid \
  && docker-php-ext-install soap \
  && docker-php-ext-install pdo_mysql \
  && apt-get clean \
@@ -49,14 +59,18 @@ ARG VCS_REF
 ARG BUILD_DATE_COMETVISUBASE
 ARG GIT_REV_COMETVISUBASE
 ARG GIT_REV_KNXD
+ARG GIT_REV_KNXD_FCGI=local
+ARG KNXD_FCGI_VERSION=unknown
 
 # Own labels
 LABEL maintainer="https://www.cometvisu.org/"
 LABEL org.cometvisu.knxd.version="0.14.75"
+LABEL org.cometvisu.knxd-fcgi.version="$KNXD_FCGI_VERSION"
 LABEL org.cometvisu.cometvisubase.version="$BUILD_DATE-$VCS_REF"
 LABEL org.cometvisu.cometvisubase.build-date="$BUILD_DATE_COMETVISUBASE"
 LABEL org.cometvisu.cometvisubase.git-rev="$GIT_REV_COMETVISUBASE"
 LABEL org.cometvisu.knxd.git-rev="$GIT_REV_KNXD"
+LABEL org.cometvisu.knxd-fcgi.git-rev="$GIT_REV_KNXD_FCGI"
 # Labels according to http://label-schema.org/rc1/
 LABEL org.label-schema.schema-version="1.0"
 LABEL org.label-schema.build-date=$BUILD_DATE
@@ -72,10 +86,10 @@ LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 COPY --from=builder /tmp/knxd-install/usr/ /usr/
 COPY --from=builder /usr/src/knxd/systemd/knxd.conf /etc/knxd.conf
 COPY --from=builder /tmp/knxd-git-rev /usr/share/knxd/git-rev
+COPY --from=builder /tmp/cometvisu-knxd-fcgi-install/bin/cometvisu-knxd-fcgi /usr/local/bin/cometvisu-knxd-fcgi
+COPY --from=builder /tmp/knxd-fcgi-git-rev /usr/share/cometvisu-knxd-fcgi-git-rev
 
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
-RUN cp /usr/lib/knxd/eibread-cgi /usr/lib/cgi-bin/r \
-   && cp /usr/lib/knxd/eibwrite-cgi /usr/lib/cgi-bin/w
 
 ##################
 
@@ -103,16 +117,26 @@ RUN { \
     echo 'upload_max_filesize = 40M'; \
     echo 'post_max_size = 40M'; \
     } | tee "$PHP_INI_DIR/conf.d/cv-php.ini" \
- && { \
-    echo "#!/bin/sh"; \
-    echo "echo Content-Type: text/plain"; \
-    echo "echo"; \
-    echo 'echo "{ \"v\":\"0.0.1\", \"s\":\"SESSION\" }"'; \
-    } | tee "/usr/lib/cgi-bin/l" \
- && chmod +x /usr/lib/cgi-bin/l \
  && chmod +x /usr/lib/cgi-bin/rrdfetch \
  && a2enmod cgi \
- && a2enmod headers
+ && a2enmod headers \
+ && a2enmod fcgid \
+ && { \
+    echo 'FcgidWrapper /usr/local/bin/cometvisu-knxd-fcgi virtual'; \
+    echo 'FcgidCmdOptions /usr/local/bin/cometvisu-knxd-fcgi \'; \
+    echo '  IOTimeout 310 \'; \
+    echo '  MaxProcesses 1 \'; \
+    echo '  MinProcesses 1 \'; \
+    echo '  ProcessLifeTime 0 \'; \
+    echo '  IdleTimeout 600'; \
+    } | tee "$APACHE_CONFDIR/conf-available/cv-knxd-fcgi.conf" \
+ && { \
+    echo '<LocationMatch "^/cgi-bin/(l|r|w)$">'; \
+    echo '    SetHandler fcgid-script'; \
+    echo '    Options +ExecCGI'; \
+    echo '</LocationMatch>'; \
+    } | tee -a "$APACHE_CONFDIR/conf-available/cv-knxd-fcgi.conf" \
+ && a2enconf cv-knxd-fcgi
 
 COPY cometvisu-entrypoint /usr/local/bin/cometvisu-entrypoint
 ENTRYPOINT ["cometvisu-entrypoint"]
