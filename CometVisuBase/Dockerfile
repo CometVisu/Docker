@@ -45,7 +45,7 @@ ENV PHP_SHA256=
 
 # install the non changing parts
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
- && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0ldbl libapache2-mod-fcgid \
+ && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0t64 libapache2-mod-fcgid \
  && docker-php-ext-install soap \
  && docker-php-ext-install pdo_mysql \
  && apt-get clean \
