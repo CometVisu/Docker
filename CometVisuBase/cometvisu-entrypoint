@@ -23,7 +23,29 @@ fi
 if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     if [ "${KNXD_PARAMETERS}" != "" ]; then
         echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
+        echo ""
+        echo "NOTE: we can't check whether your KNXD_PARAMETERS is valid. When the" 
+        echo "knxd doesn't start up a bad KNXD_PARAMETERS is most likely the case."
+        echo "Consider to remove it and use the individual options instead!"
     else
+        BAD_KNXD_CONFIG="false"
+        if [ x"${KNX_PA}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${KNX_CLIENT_PAS}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${KNX_INTERFACE}" = x"" ]; then
+            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!"
+            BAD_KNXD_CONFIG="true"
+        fi
+        if [ x"${BAD_KNXD_CONFIG}" = x"true" ]; then
+            echo 'FATAL ERROR: stopping, as no valid knxd config given.'
+            exit 1
+        fi
+
         KNX_DAEMON_OPTIONS=""
         if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
             KNX_DAEMON_OPTIONS=" -d/var/log/knxd.log"
@@ -36,16 +58,21 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo -n "starting knxd - version: " && knxd --version
+        echo -n "starting knxd - version: " && /usr/bin/knxd --version
         /usr/bin/knxd /etc/knxd.ini
         sleep 5
-        if [ ! -S "/run/knx" ]; then
-            echo 'Error: knxd socket does not exist';
+        if [ ! -S "/run/knx" ]; then 
+            echo 'Error: knxd socket does not exist'
+            echo 'Running processes:'
+            ps aux | grep knxd
+            echo 'Directory listing of /run:'
             ls -la /run;
-            cat /var/log/knxd.log;
-            exit 1;
+            echo '/var/log/knxd.log:'
+            cat /var/log/knxd.log || true
+            exit 1; 
         fi
-        chmod a+rwx /run/knx
+        chmod a+rwx /run/knx || true
+
         echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
         echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 
@@ -108,6 +135,10 @@ fi
 
 if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
 
+    if [ -e "/var/log/apache2/access.log" ]; then
+        rm -f /var/log/apache2/access.log
+    fi
+
     if [ x"${ACCESS_LOG}" = x"true" ]
         then ln -f -s /dev/stdout /var/log/apache2/access.log
         else ln -f -s /dev/null /var/log/apache2/access.log
@@ -119,7 +150,7 @@ if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
     if [ x"${1#-}" != x"$1" ]; then
         set -- apache2-foreground "$@"
     fi
-
-    echo "running '$@'..."
-    exec "$@"
-fi;
+fi
+  
+echo "running '$@'..."
+exec "$@"
