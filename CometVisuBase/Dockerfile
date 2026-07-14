@@ -6,7 +6,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install --no-install-recommends -y \
     git build-essential autoconf automake libtool \
     pkg-config libev-dev libfmt-dev libinih-dev libusb-1.0-0-dev \
-    cmake libfcgi-dev sudo
+    cmake libfcgi-dev
 
 ENV SOURCEDIR=/usr/src
 
@@ -15,7 +15,9 @@ WORKDIR $SOURCEDIR
 RUN git clone -b debian https://github.com/knxd/knxd.git \
  && cd knxd \
  && sh ./bootstrap.sh \
- && sh ./install-debian.sh \
+ && ./configure --disable-systemd --prefix=/usr --sysconfdir=/etc --libexecdir=/usr/lib \
+ && make -j$(nproc) \
+ && make install DESTDIR=/tmp/knxd-install \
  && git rev-parse --short HEAD > /tmp/knxd-git-rev
 
 # Build cometvisu-knxd-fcgi (FastCGI backend for CometVisu Protocol)
@@ -41,14 +43,11 @@ ENV PHP_URL=
 ENV PHP_ASC_URL=
 ENV PHP_SHA256=
 
-COPY --from=builder /usr/src/knxd_*.deb /usr/src/knxd-tools_*.deb /tmp/
-
 # install the non changing parts
 RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update \
  && apt-get install -y --no-install-recommends rrdtool libxml2-dev libusb-1.0-0 libev4t64 libfmt10 libinih1 libfcgi0t64 \
  && docker-php-ext-install soap \
  && docker-php-ext-install pdo_mysql \
- && dpkg -i /tmp/knxd_*.deb /tmp/knxd-tools_*.deb \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/doc/*
 
@@ -84,6 +83,7 @@ LABEL org.label-schema.vcs-ref=$VCS_REF
 LABEL org.label-schema.vendor="The CometVisu project"
 LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 
+COPY --from=builder /tmp/knxd-install/usr/ /usr/
 COPY --from=builder /usr/src/knxd/systemd/knxd.conf /etc/knxd.conf
 COPY --from=builder /tmp/knxd-git-rev /usr/share/knxd/git-rev
 COPY --from=builder /tmp/cometvisu-knxd-fcgi-install/bin/cometvisu-knxd-fcgi /usr/local/bin/cometvisu-knxd-fcgi
