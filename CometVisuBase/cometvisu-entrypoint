@@ -6,6 +6,10 @@ NO_ENTRYPOINT_KNXD=${NO_ENTRYPOINT_KNXD:-false}
 
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
+if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
+    BACKEND_NAME="knxd"
+fi
+
 BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
 BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
 BASE_URL=${BACKEND_KNXD%?}
@@ -30,10 +34,6 @@ if [ x"${ADDITIONAL_HEALTHCHECK}" != x"" ]; then
     echo "${ADDITIONAL_HEALTHCHECK}" >> /usr/local/bin/healthcheck
 fi
 
-if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
-    BACKEND_NAME="knxd"
-fi
-
 if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     if [ "${KNXD_PARAMETERS}" != "" ]; then
         echo "creating knxd config file completely based on values from KNXD_PARAMETERS (${KNXD_PARAMETERS})"
@@ -44,15 +44,15 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     else
         BAD_KNXD_CONFIG="false"
         if [ x"${KNX_PA}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${KNX_CLIENT_PAS}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${KNX_INTERFACE}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${BAD_KNXD_CONFIG}" = x"true" ]; then
@@ -72,7 +72,9 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo -n "starting knxd - version: " && /usr/bin/knxd --version
+        echo "starting knxd - version: " 
+        /usr/bin/knxd --version
+
         /usr/bin/knxd /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
@@ -91,7 +93,7 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 
         # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
-        FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
+        FCGI_SOCKET=/run/cometvisu-fcgi.sock
         echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
         FCGI_SOCKET=${FCGI_SOCKET} cometvisu-knxd-fcgi &
         sleep 2
@@ -126,7 +128,7 @@ if [ x"${BACKEND_PROXY_SOURCE}" != x"" ] && [ x"${BACKEND_PROXY_TARGET}" != x"" 
     echo "proxying ${BACKEND_PROXY_SOURCE} -> ${BACKEND_PROXY_TARGET}"
     # exclude manager backend from proxying
     echo "ProxyPass" /rest/manager !                                        >  $APACHE_CONFDIR/conf-available/cv-proxy.conf
-    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >>  $APACHE_CONFDIR/conf-available/cv-proxy.conf
+    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >> $APACHE_CONFDIR/conf-available/cv-proxy.conf
     echo "ProxyPassReverse ${BACKEND_PROXY_TARGET} ${BACKEND_PROXY_SOURCE}" >> $APACHE_CONFDIR/conf-available/cv-proxy.conf
 
     a2enmod proxy_http > /dev/null
