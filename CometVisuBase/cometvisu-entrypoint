@@ -12,7 +12,7 @@ fi
 
 BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
 BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
-BASE_URL=${BACKEND_KNXD%?}
+export BASE_URL=${BACKEND_KNXD%?}
 
 echo "Server side configuration parameters:"
 echo "BACKEND_NAME: '${BACKEND_NAME}'"
@@ -72,8 +72,7 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo "starting knxd - version: " 
-        /usr/bin/knxd --version
+        echo -n "starting knxd - version: " && /usr/bin/knxd --version 2>&1
 
         /usr/bin/knxd /etc/knxd.ini
         sleep 5
@@ -93,9 +92,9 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
 
         # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
-        FCGI_SOCKET=/run/cometvisu-fcgi.sock
+        export FCGI_SOCKET=/run/cometvisu-fcgi.sock
         echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
-        FCGI_SOCKET=${FCGI_SOCKET} cometvisu-knxd-fcgi &
+        cometvisu-knxd-fcgi &
         sleep 2
         if [ ! -S "${FCGI_SOCKET}" ]; then
             echo "Error: cometvisu-knxd-fcgi socket does not exist at ${FCGI_SOCKET}";
