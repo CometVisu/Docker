@@ -1,11 +1,25 @@
 #!/bin/sh
 set -e
 
-echo "#!/bin/sh" >  /usr/local/bin/healthcheck
-chmod a+x /usr/local/bin/healthcheck
-
 NO_ENTRYPOINT_APACHE=${NO_ENTRYPOINT_APACHE:-false}
 NO_ENTRYPOINT_KNXD=${NO_ENTRYPOINT_KNXD:-false}
+
+CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
+
+BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
+BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
+BASE_URL=${BACKEND_KNXD%?}
+
+echo "Server side configuration parameters:"
+echo "BACKEND_NAME: '${BACKEND_NAME}'"
+echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
+echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
+echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
+echo "CGI_URL_PATH: '${CGI_URL_PATH}' (deprecated)"
+echo "knxd baseURL: '${BASE_URL}'"
+
+echo "#!/bin/sh" >  /usr/local/bin/healthcheck
+chmod a+x /usr/local/bin/healthcheck
 
 if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     then echo "badhealth='apachectl stop'" >> /usr/local/bin/healthcheck
@@ -90,20 +104,6 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "if [ ! -e ${FCGI_SOCKET} ]; then echo 'Error: cometvisu-knxd-fcgi socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
     fi
 fi
-
-CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
-
-BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
-BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
-BASE_URL=${BACKEND_KNXD%?}
-
-echo "Server side configuration parameters:"
-echo "BACKEND_NAME: '${BACKEND_NAME}'"
-echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
-echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
-echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
-echo "CGI_URL_PATH: '${CGI_URL_PATH}' (deprecated)"
-echo "knxd baseURL: '${BASE_URL}'"
 
 # Tell the CometVisu to path to the login
 echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
