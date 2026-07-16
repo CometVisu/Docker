@@ -30,6 +30,13 @@ if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
 fi
 
+# Helper function for healthcheck failures - logs error to container stdout (docker logs)
+echo 'healthcheck_fail() {' >> /usr/local/bin/healthcheck
+echo '    echo "$1" | tee /proc/1/fd/1' >> /usr/local/bin/healthcheck
+echo '    $badhealth > /dev/null 2>&1' >> /usr/local/bin/healthcheck
+echo '    exit 1' >> /usr/local/bin/healthcheck
+echo '}' >> /usr/local/bin/healthcheck
+
 if [ x"${ADDITIONAL_HEALTHCHECK}" != x"" ]; then
     echo "${ADDITIONAL_HEALTHCHECK}" >> /usr/local/bin/healthcheck
 fi
@@ -72,9 +79,10 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo -n "starting knxd - version: " && /usr/bin/knxd --version 2>&1
+        export KNXD_BINARY=/usr/bin/knxd
+        echo -n "starting knxd - version: " && ${KNXD_BINARY} --version 2>&1
 
-        /usr/bin/knxd /etc/knxd.ini
+        ${KNXD_BINARY} /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
             echo 'Error: knxd socket does not exist'
@@ -88,11 +96,18 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         fi
         chmod a+rwx /run/knx || true
 
-        echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-        echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if ! pgrep -f knxd >/dev/null; then healthcheck_fail 'Error: knxd not running'; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -S /run/knx ]; then healthcheck_fail 'Error: knxd socket does not exist'; fi" >> /usr/local/bin/healthcheck
 
         # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
         export FCGI_SOCKET=/run/cometvisu-fcgi.sock
+        export LONGPOLL_TIMEOUT_SEC=${LONGPOLL_TIMEOUT_SEC:-300}
+        export DEBUG_BACKEND=${DEBUG_BACKEND:-}
+        echo "KNXD_BINARY: '${KNXD_BINARY}'"
+        echo "LONGPOLL_TIMEOUT_SEC: '${LONGPOLL_TIMEOUT_SEC}'"
+        if [ x"${DEBUG_BACKEND}" = x"1" ]; then
+            echo "DEBUG_BACKEND: enabled"
+        fi
         echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
         cometvisu-knxd-fcgi &
         sleep 2
@@ -101,8 +116,8 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
             exit 1;
         fi
         chmod a+rwx "${FCGI_SOCKET}"
-        echo "if ! pidof cometvisu-knxd-fcgi >/dev/null; then echo 'Error: cometvisu-knxd-fcgi not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-        echo "if [ ! -e ${FCGI_SOCKET} ]; then echo 'Error: cometvisu-knxd-fcgi socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if ! pgrep -f cometvisu-knxd-fcgi >/dev/null; then healthcheck_fail 'Error: cometvisu-knxd-fcgi not running'; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -S \"\${FCGI_SOCKET}\" ]; then healthcheck_fail 'Error: cometvisu-knxd-fcgi socket does not exist'; fi" >> /usr/local/bin/healthcheck
     fi
 fi
 
@@ -145,7 +160,7 @@ if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
         else ln -f -s /dev/null /var/log/apache2/access.log
     fi
 
-    echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+    echo "if ! curl -f -s http://localhost/ >/dev/null; then healthcheck_fail 'Error: apache not responding'; fi" >> /usr/local/bin/healthcheck
 
     # first arg is `-f` or `--some-option`
     if [ x"${1#-}" != x"$1" ]; then
