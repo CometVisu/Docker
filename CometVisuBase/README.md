@@ -29,6 +29,8 @@ Environment parameters:
 |BACKEND_PROXY_TARGET   |                           |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
 |STOP_ON_BAD_HEALTH     | true                      |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
 |ACCESS_LOG             | false                     |Show web server access log when set to `true`|
+|LONGPOLL_TIMEOUT_SEC   | 300                       |Max seconds to wait in long-poll for the `r` (read) backend request|
+|DEBUG_BACKEND          | *(unset)*                 |Set to `1` to enable debug logging of the FastCGI backend to stderr|
 
 ### KNX
 
