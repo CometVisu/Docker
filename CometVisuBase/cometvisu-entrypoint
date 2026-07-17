@@ -79,8 +79,12 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        export KNXD_BINARY=/usr/bin/knxd
-        echo -n "starting knxd - version: " && ${KNXD_BINARY} --version 2>&1
+        KNXD_BINARY=/usr/bin/knxd
+        KNXD_VERSION=$(${KNXD_BINARY} --version 2>&1 | sed 's/^[^ ]* //')
+        echo -n "starting knxd - version: " && echo "${KNXD_VERSION}"
+
+        export LOGIN_EXTRA_CONFIG='"knxdRuntimeVersion":"'${KNXD_VERSION}'"'
+        echo "LOGIN_EXTRA_CONFIG: '${LOGIN_EXTRA_CONFIG}'"
 
         ${KNXD_BINARY} /etc/knxd.ini
         sleep 5
@@ -103,8 +107,15 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         export FCGI_SOCKET=/run/cometvisu-fcgi.sock
         export LONGPOLL_TIMEOUT_SEC=${LONGPOLL_TIMEOUT_SEC:-300}
         export DEBUG_BACKEND=${DEBUG_BACKEND:-}
-        echo "KNXD_BINARY: '${KNXD_BINARY}'"
+        # Extract knxd client count from KNX_CLIENT_PAS (format: <addr>:<count>)
+        KNXD_CLIENT_COUNT="${KNX_CLIENT_PAS##*:}"
+        export FCGI_WORKERS=${FCGI_WORKERS:-20}
+        if [ "${FCGI_WORKERS}" -gt "${KNXD_CLIENT_COUNT}" ]; then
+            echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) exceeds knxd client count (${KNXD_CLIENT_COUNT}), reducing to ${KNXD_CLIENT_COUNT}"
+            export FCGI_WORKERS="${KNXD_CLIENT_COUNT}"
+        fi
         echo "LONGPOLL_TIMEOUT_SEC: '${LONGPOLL_TIMEOUT_SEC}'"
+        echo "FCGI_WORKERS: '${FCGI_WORKERS}'"
         if [ x"${DEBUG_BACKEND}" = x"1" ]; then
             echo "DEBUG_BACKEND: enabled"
         fi
