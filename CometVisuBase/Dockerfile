@@ -122,6 +122,7 @@ RUN { \
  && a2enmod headers \
  && a2enmod proxy \
  && a2enmod proxy_fcgi \
+ && a2enconf serve-cgi-bin \
  && { \
     echo '# Proxy FastCGI requests to the standalone cometvisu-knxd-fcgi Unix socket'; \
     echo 'ProxyPass "/cgi-bin/l" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/l"'; \
