@@ -1,23 +1,44 @@
 #!/bin/sh
 set -e
 
-echo "#!/bin/sh" >  /usr/local/bin/healthcheck
-chmod a+x /usr/local/bin/healthcheck
-
 NO_ENTRYPOINT_APACHE=${NO_ENTRYPOINT_APACHE:-false}
 NO_ENTRYPOINT_KNXD=${NO_ENTRYPOINT_KNXD:-false}
+
+CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
+
+if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
+    BACKEND_NAME="knxd"
+fi
+
+BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
+BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
+export BASE_URL=${BACKEND_KNXD%?}
+
+echo "Server side configuration parameters:"
+echo "BACKEND_NAME: '${BACKEND_NAME}'"
+echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
+echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
+echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
+echo "CGI_URL_PATH: '${CGI_URL_PATH}' (deprecated)"
+echo "knxd baseURL: '${BASE_URL}'"
+
+echo "#!/bin/sh" >  /usr/local/bin/healthcheck
+chmod a+x /usr/local/bin/healthcheck
 
 if [ x"${STOP_ON_BAD_HEALTH}" = x"true" ]
     then echo "badhealth='apachectl stop'" >> /usr/local/bin/healthcheck
     else echo "badhealth='true'" >> /usr/local/bin/healthcheck
 fi
 
+# Helper function for healthcheck failures - logs error to container stdout (docker logs)
+echo 'healthcheck_fail() {' >> /usr/local/bin/healthcheck
+echo '    echo "$1" | tee /proc/1/fd/1' >> /usr/local/bin/healthcheck
+echo '    $badhealth > /dev/null 2>&1' >> /usr/local/bin/healthcheck
+echo '    exit 1' >> /usr/local/bin/healthcheck
+echo '}' >> /usr/local/bin/healthcheck
+
 if [ x"${ADDITIONAL_HEALTHCHECK}" != x"" ]; then
     echo "${ADDITIONAL_HEALTHCHECK}" >> /usr/local/bin/healthcheck
-fi
-
-if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
-    BACKEND_NAME="knxd"
 fi
 
 if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
@@ -30,15 +51,15 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     else
         BAD_KNXD_CONFIG="false"
         if [ x"${KNX_PA}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_PA" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${KNX_CLIENT_PAS}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_CLIENT_PAS" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${KNX_INTERFACE}" = x"" ]; then
-            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!"
+            echo 'ERROR: you MUST specify "KNX_INTERFACE" when using the knxd backend!'
             BAD_KNXD_CONFIG="true"
         fi
         if [ x"${BAD_KNXD_CONFIG}" = x"true" ]; then
@@ -58,8 +79,14 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
     sed -i 's/^KNXD_OPTS=.*/KNXD_OPTS=\/etc\/knxd.ini/' /etc/knxd.conf
 
     if [ x"${NO_ENTRYPOINT_KNXD}" = x"false" ]; then
-        echo -n "starting knxd - version: " && /usr/bin/knxd --version
-        /usr/bin/knxd /etc/knxd.ini
+        KNXD_BINARY=/usr/bin/knxd
+        KNXD_VERSION=$(${KNXD_BINARY} --version 2>&1 | sed 's/^[^ ]* //')
+        echo -n "starting knxd - version: " && echo "${KNXD_VERSION}"
+
+        export LOGIN_EXTRA_CONFIG='"knxdRuntimeVersion":"'${KNXD_VERSION}'"'
+        echo "LOGIN_EXTRA_CONFIG: '${LOGIN_EXTRA_CONFIG}'"
+
+        ${KNXD_BINARY} /etc/knxd.ini
         sleep 5
         if [ ! -S "/run/knx" ]; then 
             echo 'Error: knxd socket does not exist'
@@ -73,37 +100,37 @@ if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         fi
         chmod a+rwx /run/knx || true
 
-        echo "if ! pidof knxd >/dev/null; then echo 'Error: knxd not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-        echo "if [ ! -e /run/knx ]; then echo 'Error: knxd socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if ! pgrep -f knxd >/dev/null; then healthcheck_fail 'Error: knxd not running'; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -S /run/knx ]; then healthcheck_fail 'Error: knxd socket does not exist'; fi" >> /usr/local/bin/healthcheck
 
         # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
-        FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
+        export FCGI_SOCKET=/run/cometvisu-fcgi.sock
+        export LONGPOLL_TIMEOUT_SEC=${LONGPOLL_TIMEOUT_SEC:-300}
+        export DEBUG_BACKEND=${DEBUG_BACKEND:-}
+        # Extract knxd client count from KNX_CLIENT_PAS (format: <addr>:<count>)
+        KNXD_CLIENT_COUNT="${KNX_CLIENT_PAS##*:}"
+        export FCGI_WORKERS=${FCGI_WORKERS:-20}
+        if [ "${FCGI_WORKERS}" -gt "${KNXD_CLIENT_COUNT}" ]; then
+            echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) exceeds knxd client count (${KNXD_CLIENT_COUNT}), reducing to ${KNXD_CLIENT_COUNT}"
+            export FCGI_WORKERS="${KNXD_CLIENT_COUNT}"
+        fi
+        echo "LONGPOLL_TIMEOUT_SEC: '${LONGPOLL_TIMEOUT_SEC}'"
+        echo "FCGI_WORKERS: '${FCGI_WORKERS}'"
+        if [ x"${DEBUG_BACKEND}" = x"1" ]; then
+            echo "DEBUG_BACKEND: enabled"
+        fi
         echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
-        FCGI_SOCKET=${FCGI_SOCKET} cometvisu-knxd-fcgi &
+        cometvisu-knxd-fcgi &
         sleep 2
         if [ ! -S "${FCGI_SOCKET}" ]; then
             echo "Error: cometvisu-knxd-fcgi socket does not exist at ${FCGI_SOCKET}";
             exit 1;
         fi
         chmod a+rwx "${FCGI_SOCKET}"
-        echo "if ! pidof cometvisu-knxd-fcgi >/dev/null; then echo 'Error: cometvisu-knxd-fcgi not running'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
-        echo "if [ ! -e ${FCGI_SOCKET} ]; then echo 'Error: cometvisu-knxd-fcgi socket does not exist'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+        echo "if ! pgrep -f cometvisu-knxd-fcgi >/dev/null; then healthcheck_fail 'Error: cometvisu-knxd-fcgi not running'; fi" >> /usr/local/bin/healthcheck
+        echo "if [ ! -S \"\${FCGI_SOCKET}\" ]; then healthcheck_fail 'Error: cometvisu-knxd-fcgi socket does not exist'; fi" >> /usr/local/bin/healthcheck
     fi
 fi
-
-CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
-
-BACKEND_KNXD=${BACKEND_KNXD:-${CGI_URL_PATH}l}
-BACKEND_OPENHAB=${BACKEND_OPENHAB:-$CGI_URL_PATH}
-BASE_URL=${BACKEND_KNXD%?}
-
-echo "Server side configuration parameters:"
-echo "BACKEND_NAME: '${BACKEND_NAME}'"
-echo "BACKEND_KNXD: '${BACKEND_KNXD}'"
-echo "BACKEND_MQTT: '${BACKEND_MQTT}'"
-echo "BACKEND_OPENHAB: '${BACKEND_OPENHAB}'"
-echo "CGI_URL_PATH: '${CGI_URL_PATH}' (deprecated)"
-echo "knxd baseURL: '${BASE_URL}'"
 
 # Tell the CometVisu to path to the login
 echo ''                                                             >> $APACHE_CONFDIR/conf-available/cv-docker-php.conf
@@ -126,7 +153,7 @@ if [ x"${BACKEND_PROXY_SOURCE}" != x"" ] && [ x"${BACKEND_PROXY_TARGET}" != x"" 
     echo "proxying ${BACKEND_PROXY_SOURCE} -> ${BACKEND_PROXY_TARGET}"
     # exclude manager backend from proxying
     echo "ProxyPass" /rest/manager !                                        >  $APACHE_CONFDIR/conf-available/cv-proxy.conf
-    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >>  $APACHE_CONFDIR/conf-available/cv-proxy.conf
+    echo "ProxyPass ${BACKEND_PROXY_SOURCE} ${BACKEND_PROXY_TARGET}"        >> $APACHE_CONFDIR/conf-available/cv-proxy.conf
     echo "ProxyPassReverse ${BACKEND_PROXY_TARGET} ${BACKEND_PROXY_SOURCE}" >> $APACHE_CONFDIR/conf-available/cv-proxy.conf
 
     a2enmod proxy_http > /dev/null
@@ -144,7 +171,7 @@ if [ x"${NO_ENTRYPOINT_APACHE}" = x"false" ]; then
         else ln -f -s /dev/null /var/log/apache2/access.log
     fi
 
-    echo "if ! curl -f -s http://localhost/ >/dev/null; then echo 'Error: apache not responding'; \$badhealth > /dev/null 2>&1; exit 1; fi" >> /usr/local/bin/healthcheck
+    echo "if ! curl -f -s http://localhost/ >/dev/null; then healthcheck_fail 'Error: apache not responding'; fi" >> /usr/local/bin/healthcheck
 
     # first arg is `-f` or `--some-option`
     if [ x"${1#-}" != x"$1" ]; then
