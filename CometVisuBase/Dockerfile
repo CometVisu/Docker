@@ -20,7 +20,7 @@ RUN git clone -b debian https://github.com/knxd/knxd.git \
  && make install DESTDIR=/tmp/knxd-install \
  && git rev-parse --short HEAD > /tmp/knxd-git-rev
 
-# Build cometvisu-knx-fcgi 2.x (FastCGI backend for the CometVisu Protocol)
+# Build cometvisu-knx-fcgi (FastCGI backend for the CometVisu Protocol)
 RUN git clone https://github.com/CometVisu/cometvisu-knx-fcgi.git \
  && cd cometvisu-knx-fcgi \
  && cmake -B build -DCMAKE_BUILD_TYPE=Release -DKNXD_SOURCE_DIR=$SOURCEDIR/knxd/src \
@@ -156,8 +156,26 @@ ENV BACKEND_PROXY_SOURCE=""
 ENV BACKEND_PROXY_TARGET=""
 
 # settings for the FastCGI backend (cometvisu-knx-fcgi 2.x)
-# The backend requires an explicit transport; this container always bundles knxd.
+# Transport to the KNX bus: knxd (bundled or external knxd), ip-tunnel (KNXnet/IP
+# tunneling client) or ip-routing (KNXnet/IP multicast routing member). The
+# ip-* transports need no knxd at all; the entrypoint validates the value.
 ENV KNX_TRANSPORT=knxd
+# KNXnet/IP settings. They are left empty on purpose so that the backend's own
+# defaults apply (port 3671, NAT off, heartbeat 60 s, ACK timeout 1000 ms, 3
+# retries, multicast 224.0.23.12, individually chosen interface/individual
+# address); the entrypoint only passes on the non-empty ones.
+# ip-tunnel:
+ENV KNX_IP_HOST=""
+ENV KNX_IP_PORT=""
+ENV KNX_IP_LOCAL_ADDR=""
+ENV KNX_IP_NAT=""
+ENV KNX_IP_HEARTBEAT_SEC=""
+ENV KNX_IP_ACK_TIMEOUT_MS=""
+ENV KNX_IP_RETRIES=""
+# ip-routing:
+ENV KNX_IP_MULTICAST=""
+ENV KNX_IP_IFACE=""
+ENV KNX_IP_INDIVIDUAL_ADDR=""
 ENV LONGPOLL_TIMEOUT_SEC=300
 # Worker processes.  Since 2.x the workers never open a knxd connection of
 # their own - the single cache reader uses one, whatever FCGI_WORKERS is.

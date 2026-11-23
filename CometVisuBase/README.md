@@ -22,12 +22,24 @@ Environment parameters:
 |BACKEND_MQTT           |                           |URL to access the `mqtt` backend|
 |BACKEND_OPENHAB        |                           |Path to the openHAB REST-API|
 |CGI_URL_PATH           | /cgi-bin/                 |**Deprecated:** Special case for `knxd` and openHAB: URL prefix to the `cgi-bin` resources|
-|KNX_INTERFACE          | iptn:172.17.0.1:3700      |Special case for `knxd`: information for the knxd to connect to the KNX bus|
-|KNX_PA                 | 1.1.238                   |Special case for `knxd`: PA for the knxd|
-|KNX_CLIENT_PAS         | 1.1.239:10                |Special case for `knxd`: PA and number of client connections (`<address>:<count>`) the knxd accepts - must be at least 3|
-|KNXD_PARAMETERS        | -u -d/var/log/eibd.log -c |Special case for `knxd`: additional startup parameters for the knxd|
-|NO_ENTRYPOINT_KNXD     | false                     |`false`: start knxd inside this container. `extern`: do **not** start knxd, use the socket of an external knxd instead (see `KNXD_SOCKET`). `true`: start neither knxd nor the FastCGI backend|
-|KNXD_SOCKET            | /run/knx                  |Special case for `knxd`: path to the knxd Unix socket. Only used when `NO_ENTRYPOINT_KNXD=extern`|
+|KNX_TRANSPORT          | knxd                      |Transport to the KNX bus: `knxd` (bundled or external knxd), `ip-tunnel` (KNXnet/IP tunneling client) or `ip-routing` (KNXnet/IP multicast routing). The `ip-*` transports need no knxd and never start the bundled one. Empty means `knxd`; an unknown value stops the container|
+|KNX_IP_HOST            | *(empty)*                 |`ip-tunnel`: address of the KNX IP interface or KNX IP router - **required** for `ip-tunnel`|
+|KNX_IP_PORT            | 3671                      |`ip-tunnel` and `ip-routing`: KNXnet/IP UDP port|
+|KNX_IP_LOCAL_ADDR      | *(OS choice)*             |`ip-tunnel`: local address that is advertised to the device, useful behind NAT or on a multi-homed host|
+|KNX_IP_NAT             | 0                         |`ip-tunnel`: `1` enables the NAT mode of the tunnel connection|
+|KNX_IP_HEARTBEAT_SEC   | 60                        |`ip-tunnel`: interval of the connection state request in seconds|
+|KNX_IP_ACK_TIMEOUT_MS  | 1000                      |`ip-tunnel`: timeout in ms before a telegram is repeated|
+|KNX_IP_RETRIES         | 3                         |`ip-tunnel`: number of repetitions per telegram|
+|KNX_IP_MULTICAST       | 224.0.23.12               |`ip-routing`: multicast group of the KNXnet/IP routing|
+|KNX_IP_IFACE           | *(default route)*         |`ip-routing`: network interface for the multicast group|
+|KNX_IP_INDIVIDUAL_ADDR | 15.15.250                 |`ip-routing`: individual address (`A.B.C`, A and B in `0..15`, C in `0..255`, not `0.0.0`) used as the source of the routing telegrams - must be a free address of the installation|
+|KNX_INTERFACE          | *(empty)*                 |**Only for `KNX_TRANSPORT=knxd`:** information for the knxd to connect to the KNX bus, e.g. `iptn:172.17.0.1:3700`|
+|KNX_INTERFACE_OPTIONS  | -B single -A retry-delay=1|**Only for `KNX_TRANSPORT=knxd`:** additional parameters for the KNX interface of the knxd|
+|KNX_PA                 | 1.1.238                   |**Only for `KNX_TRANSPORT=knxd`:** PA for the knxd|
+|KNX_CLIENT_PAS         | 1.1.239:10                |**Only for `KNX_TRANSPORT=knxd`:** PA and number of client connections (`<address>:<count>`) the knxd accepts - must be at least 2|
+|KNXD_PARAMETERS        |                           |**Only for `KNX_TRANSPORT=knxd`:** complete parameter set for the knxd, replaces all other knxd parameters|
+|NO_ENTRYPOINT_KNXD     | false                     |**Only for `KNX_TRANSPORT=knxd`:** `false`: start knxd inside this container. `extern`: do **not** start knxd, use the socket of an external knxd instead (see `KNXD_SOCKET`). `true`: start neither knxd nor the FastCGI backend. Ignored by the `ip-*` transports, which always start the FastCGI backend|
+|KNXD_SOCKET            | /run/knx                  |**Only for `KNX_TRANSPORT=knxd`:** path to the knxd Unix socket. Only used when `NO_ENTRYPOINT_KNXD=extern`|
 |BACKEND_PROXY_SOURCE   |                           |Special case for openHAB: proxy paths starting with this value, e.g. `/rest`|
 |BACKEND_PROXY_TARGET   |                           |Special case for openHAB: target URL for proxying the requests to BACKEND_PROXY_SOURCE, e.g. `http://<openhab-server-ip-address>:8080/rest`|
 |STOP_ON_BAD_HEALTH     | true                      |Stop container on failed health check when set to `true`. This will trigger a new start of the container when docker is configured to do so|
@@ -38,10 +50,21 @@ Environment parameters:
 |KNX_TX_MAX_PER_SEC     | 10                        |Upper bound for outgoing KNX telegrams per second over all clients (protects the bus)|
 |DEBUG_BACKEND          | *(unset)*                 |Set to `1` to enable debug logging of the FastCGI backend to stderr|
 
+**Note:** The `KNX_IP_*` variables are empty in the image, so the effective
+value is the default of the FastCGI backend (as listed in the table). The
+container only passes on the ones that are actually set, so an empty value
+never overrides a backend default.
+
+**Note:** `NO_ENTRYPOINT_KNXD`, `KNXD_SOCKET`, `KNX_INTERFACE`,
+`KNX_INTERFACE_OPTIONS`, `KNX_PA`, `KNX_CLIENT_PAS` and `KNXD_PARAMETERS` only
+configure the `knxd` transport. They are ignored (and not needed) for the
+`ip-tunnel` and `ip-routing` transports.
+
 ### KNX
 
-By default, the environment variables are configured to set up a KNX connection.
-But make sure that `KNX_INTERFACE` and `KNX_PA` are set correctly.
+By default (`KNX_TRANSPORT=knxd`), the environment variables are configured to
+set up a KNX connection via knxd. But make sure that `KNX_INTERFACE` and
+`KNX_PA` are set correctly.
 
 The environment variable `BACKEND_KNXD` must be the URL to the `l` login script
 of the knxd backend.
@@ -100,6 +123,49 @@ controlled by this container); only the FastCGI backend and Apache are checked.
 
 **Note:** With `NO_ENTRYPOINT_KNXD=true` neither knxd nor the FastCGI backend is
 started, i.e. the `knxd` backend is unavailable and `/cgi-bin/l` will fail.
+
+### Direct KNXnet/IP (no knxd)
+
+With `KNX_TRANSPORT=ip-tunnel` or `KNX_TRANSPORT=ip-routing` the FastCGI backend
+reaches the KNX bus itself: the bundled knxd is **not** started (no matter what
+`NO_ENTRYPOINT_KNXD` says) and no knxd health check is generated. Only the
+FastCGI backend and Apache are checked. `BACKEND_NAME` stays `knxd` and
+`BACKEND_KNXD` stays the URL of the `l` login resource - they name the CometVisu
+backend (the protocol endpoint), not the transport to the bus.
+
+`ip-tunnel` makes the CometVisu a tunneling client of a KNX IP interface or
+KNX IP router, i.e. it behaves like a classical KNX device:
+
+```
+docker run -d -p 8080:80 -e KNX_TRANSPORT=ip-tunnel \
+  -e KNX_IP_HOST=192.168.0.10 -e KNX_IP_NAT=1 cometvisu/cometvisu:latest
+```
+
+`ip-routing` joins the KNXnet/IP multicast group and takes part in the routing
+like a KNX IP router:
+
+```
+docker run -d --network host -e KNX_TRANSPORT=ip-routing \
+  -e KNX_IP_IFACE=eth0 -e KNX_IP_INDIVIDUAL_ADDR=15.15.250 \
+  cometvisu/cometvisu:latest
+```
+
+Notes for both modes:
+
+* No knxd is required - not even an external one. `KNXD_SOCKET` is not used and
+  the knxd settings (`KNX_INTERFACE`, `KNX_PA`, `KNX_CLIENT_PAS`,
+  `KNX_INTERFACE_OPTIONS`, `KNXD_PARAMETERS`) are ignored.
+* A KNX IP interface offers only a few tunnel connections (often 4) and one of
+  them is used by the CometVisu. When all are taken the container cannot
+  connect to the bus.
+* Multicast does not cross the Docker bridge network: `ip-routing` requires
+  `--network host`. Because `-p` cannot be used with `--network host`, set
+  `APACHE_PORT` when port 80 is already occupied on the host.
+* With the default bridge network the container is behind NAT, so `ip-tunnel`
+  needs either `KNX_IP_NAT=1` (the device has to support NAT) or `--network
+  host`.
+* Every participant of the multicast group can read the bus traffic and send
+  telegrams - use `ip-routing` only in a trusted network segment.
 
 ### openHAB
 

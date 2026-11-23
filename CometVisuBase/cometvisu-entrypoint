@@ -6,6 +6,23 @@ NO_ENTRYPOINT_KNXD=${NO_ENTRYPOINT_KNXD:-false}
 KNXD_SOCKET=${KNXD_SOCKET:-/run/knx}
 APACHE_PORT=${APACHE_PORT:-80}
 
+# Transport of the FastCGI backend to the KNX bus:
+#   knxd        the backend talks to a knxd daemon over its Unix socket
+#   ip-tunnel   the backend is a KNXnet/IP tunneling client (no knxd needed)
+#   ip-routing  the backend joins the KNXnet/IP multicast group (no knxd needed)
+# An empty value means knxd so that containers started before KNX_TRANSPORT
+# existed keep working. An unknown value is a configuration error: silently
+# falling back to knxd would hide it.
+KNX_TRANSPORT=${KNX_TRANSPORT:-knxd}
+case "${KNX_TRANSPORT}" in
+    knxd|ip-tunnel|ip-routing)
+        ;;
+    *)
+        echo "ERROR: invalid KNX_TRANSPORT '${KNX_TRANSPORT}' - allowed values are 'knxd', 'ip-tunnel' and 'ip-routing'"
+        exit 1
+        ;;
+esac
+
 CGI_URL_PATH=${CGI_URL_PATH:-/cgi-bin/}
 
 if [ x"${BACKEND_NAME}" = x"default" ] || [ x"${BACKEND_NAME}" = x"" ]; then
@@ -48,50 +65,180 @@ fi
 #   NO_ENTRYPOINT_KNXD=extern  knxd is not started, the socket of an external
 #                              knxd is used instead (path given by KNXD_SOCKET)
 #   NO_ENTRYPOINT_KNXD=true    neither knxd nor the FastCGI backend is started
+# All of this only applies to the knxd transport: the KNXnet/IP transports talk
+# to the bus themselves and never need a knxd - neither bundled nor external.
 START_KNXD="true"
 USE_EXTERNAL_KNXD="false"
-if [ x"${NO_ENTRYPOINT_KNXD}" = x"extern" ]; then
-    START_KNXD="false"
-    USE_EXTERNAL_KNXD="true"
-elif [ x"${NO_ENTRYPOINT_KNXD}" != x"false" ]; then
+if [ x"${KNX_TRANSPORT}" = x"knxd" ]; then
+    if [ x"${NO_ENTRYPOINT_KNXD}" = x"extern" ]; then
+        START_KNXD="false"
+        USE_EXTERNAL_KNXD="true"
+    elif [ x"${NO_ENTRYPOINT_KNXD}" != x"false" ]; then
+        START_KNXD="false"
+    fi
+else
     START_KNXD="false"
 fi
 
+# Export the value of the environment variable named by $1 only when it is set
+# and not empty. The FastCGI backend applies its own defaults to everything it
+# does not find in the environment, an empty value would override them.
+export_if_set() {
+    _eis_name="$1"
+    _eis_value=""
+    eval "_eis_value=\${${_eis_name}:-}"
+    if [ x"${_eis_value}" != x"" ]; then
+        export "${_eis_name}=${_eis_value}"
+    else
+        unset "${_eis_name}"
+    fi
+}
+
+# Log a setting for the startup output. Unset values are marked as such - the
+# backend then falls back to its own default.
+show_setting() {
+    _ss_value=""
+    eval "_ss_value=\${$1:-}"
+    if [ x"${_ss_value}" = x"" ]; then
+        echo "$1: (not set, backend default)"
+    else
+        echo "$1: '${_ss_value}'"
+    fi
+}
+
+# Validate a KNX individual address 'A.B.C' - A is the area and B the line
+# (both 0..15), C the device (0..255). The router rejects 0.0.0 as the source
+# of a routing telegram.
+validate_individual_addr() {
+    _via_value="$1"
+    _via_ok="true"
+    case "${_via_value}" in
+        *.*.*)
+            # Reject a fourth component ("a.b.c.d" would otherwise be parsed
+            # as a= a, b= b, c= c.d).
+            _via_rest="${_via_value#*.}"
+            case "${_via_rest}" in
+                *.*.*) _via_ok="false" ;;
+                *.*) ;;
+                *) _via_ok="false" ;;
+            esac
+            ;;
+        *)
+            _via_ok="false"
+            ;;
+    esac
+    if [ x"${_via_ok}" = x"true" ]; then
+        _via_a="${_via_value%%.*}"
+        _via_rest="${_via_value#*.}"
+        _via_b="${_via_rest%%.*}"
+        _via_c="${_via_rest#*.}"
+        for _via_part in "${_via_a}" "${_via_b}" "${_via_c}"; do
+            case "${_via_part}" in
+                ''|*[!0-9]*) _via_ok="false" ;;
+            esac
+        done
+    fi
+    if [ x"${_via_ok}" = x"true" ]; then
+        if [ "${_via_a}" -gt 15 ] || [ "${_via_b}" -gt 15 ] || [ "${_via_c}" -gt 255 ]; then
+            _via_ok="false"
+        fi
+    fi
+    if [ x"${_via_ok}" = x"true" ]; then
+        if [ "${_via_a}" -eq 0 ] && [ "${_via_b}" -eq 0 ] && [ "${_via_c}" -eq 0 ]; then
+            _via_ok="false"
+        fi
+    fi
+    if [ x"${_via_ok}" != x"true" ]; then
+        echo "ERROR: KNX_IP_INDIVIDUAL_ADDR '${_via_value}' is not a valid KNX individual address - expected A.B.C with A and B in 0..15, C in 0..255 and not 0.0.0"
+        exit 1
+    fi
+}
+
+# Sanity checks that only apply to the KNXnet/IP transports: they need no knxd
+# address and no client connections, but the tunnel needs a target and the
+# routing needs a usable individual address.
+validate_ip_transport() {
+    case "${KNX_TRANSPORT}" in
+        ip-tunnel)
+            if [ x"${KNX_IP_HOST}" = x"" ]; then
+                echo "ERROR: KNX_TRANSPORT=ip-tunnel requires KNX_IP_HOST (the address of the KNX IP interface or KNX IP router)"
+                exit 1
+            fi
+            ;;
+        ip-routing)
+            # Unset means "use the backend default" (15.15.250), which is valid.
+            if [ x"${KNX_IP_INDIVIDUAL_ADDR}" != x"" ]; then
+                validate_individual_addr "${KNX_IP_INDIVIDUAL_ADDR}"
+            fi
+            echo "NOTE: KNXnet/IP routing uses the multicast group ${KNX_IP_MULTICAST:-224.0.23.12}, which does not cross the Docker bridge network - run the container with '--network host'"
+            ;;
+    esac
+}
+
 start_fcgi_backend() {
     # Start cometvisu-knx-fcgi (2.x) in socket mode: the binary opens FCGI_SOCKET
-    # itself and the bundled knxd is its only transport.
+    # itself and reaches the KNX bus using the transport given by KNX_TRANSPORT.
     export FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
-    export KNX_TRANSPORT=knxd
+    # Pass the transport through unchanged - an invalid value has already been
+    # rejected at the top of this script.
+    export KNX_TRANSPORT
     export LONGPOLL_TIMEOUT_SEC=${LONGPOLL_TIMEOUT_SEC:-300}
     export KNX_TX_MAX_PER_SEC=${KNX_TX_MAX_PER_SEC:-10}
     export DEBUG_BACKEND=${DEBUG_BACKEND:-}
     export FCGI_WORKERS=${FCGI_WORKERS:-9}
-    if [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then
-        # Talk to the socket provided by the external knxd.
-        export KNXD_SOCKET
-        echo "KNXD_SOCKET: '${KNXD_SOCKET}'"
-    else
-        # The knxd started by this container uses its default socket path.
-        unset KNXD_SOCKET
-        echo "KNXD_SOCKET: '/run/knx' (default, knxd is started by this container)"
-    fi
-    # Extract knxd client count from KNX_CLIENT_PAS (format: <addr>:<count>).
-    # Since 2.x the backend uses exactly ONE knxd client connection (the cache
-    # reader); the workers only enqueue telegrams into shared memory.  The
-    # client count is therefore independent of FCGI_WORKERS - it only has to
-    # leave room for the cache reader (and a spare for knxtool).
-    if [ x"${START_KNXD}" = x"true" ]; then
-        KNXD_CLIENT_COUNT="${KNX_CLIENT_PAS##*:}"
-        case "${KNXD_CLIENT_COUNT}" in
-            ''|*[!0-9]*)
-                echo "ERROR: cannot determine knxd client count from KNX_CLIENT_PAS ('${KNX_CLIENT_PAS}') - expected the format <address>:<count>"
-                exit 1
-                ;;
-        esac
-        if [ "${KNXD_CLIENT_COUNT}" -lt 2 ]; then
-            echo "ERROR: KNX_CLIENT_PAS client count (${KNXD_CLIENT_COUNT}) is too low - at least 2 client connections are required (one for the backend's cache reader, one for tools like knxtool)"
-            exit 1
+    # Empty KNX_IP_* variables are not passed on, so that the defaults of the
+    # backend stay in effect. The image ships them empty and they are only used
+    # by the KNXnet/IP transports, so this keeps the environment of the backend
+    # unchanged for the knxd transport.
+    export_if_set KNX_IP_HOST
+    export_if_set KNX_IP_PORT
+    export_if_set KNX_IP_LOCAL_ADDR
+    export_if_set KNX_IP_NAT
+    export_if_set KNX_IP_HEARTBEAT_SEC
+    export_if_set KNX_IP_ACK_TIMEOUT_MS
+    export_if_set KNX_IP_RETRIES
+    export_if_set KNX_IP_MULTICAST
+    export_if_set KNX_IP_IFACE
+    export_if_set KNX_IP_INDIVIDUAL_ADDR
+    if [ x"${KNX_TRANSPORT}" = x"knxd" ]; then
+        if [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then
+            # Talk to the socket provided by the external knxd.
+            export KNXD_SOCKET
+            echo "KNXD_SOCKET: '${KNXD_SOCKET}'"
+        else
+            # The knxd started by this container uses its default socket path.
+            unset KNXD_SOCKET
+            echo "KNXD_SOCKET: '/run/knx' (default, knxd is started by this container)"
         fi
+        # Extract knxd client count from KNX_CLIENT_PAS (format: <addr>:<count>).
+        # Since 2.x the backend uses exactly ONE knxd client connection (the cache
+        # reader); the workers only enqueue telegrams into shared memory.  The
+        # client count is therefore independent of FCGI_WORKERS - it only has to
+        # leave room for the cache reader (and a spare for knxtool).
+        if [ x"${START_KNXD}" = x"true" ]; then
+            KNXD_CLIENT_COUNT="${KNX_CLIENT_PAS##*:}"
+            case "${KNXD_CLIENT_COUNT}" in
+                ''|*[!0-9]*)
+                    echo "ERROR: cannot determine knxd client count from KNX_CLIENT_PAS ('${KNX_CLIENT_PAS}') - expected the format <address>:<count>"
+                    exit 1
+                    ;;
+            esac
+            if [ "${KNXD_CLIENT_COUNT}" -lt 2 ]; then
+                echo "ERROR: KNX_CLIENT_PAS client count (${KNXD_CLIENT_COUNT}) is too low - at least 2 client connections are required (one for the backend's cache reader, one for tools like knxtool)"
+                exit 1
+            fi
+        fi
+    else
+        # KNXnet/IP: neither a bundled nor an external knxd is involved, so no
+        # knxd settings are needed or evaluated.
+        unset KNXD_SOCKET
+        echo "KNXnet/IP settings ('not set' means the default of the backend is used):"
+        show_setting KNX_IP_HOST
+        show_setting KNX_IP_PORT
+        show_setting KNX_IP_IFACE
+        show_setting KNX_IP_MULTICAST
+        show_setting KNX_IP_INDIVIDUAL_ADDR
+        show_setting KNX_IP_NAT
     fi
     # The backend reserves two workers for /w and /l so that a long-poll can
     # never delay a switch operation; below 2 workers that reservation is not
@@ -127,7 +274,13 @@ start_fcgi_backend() {
     echo "if [ ! -S \"\${FCGI_SOCKET}\" ]; then healthcheck_fail 'Error: cometvisu-knx-fcgi socket does not exist'; fi" >> /usr/local/bin/healthcheck
 }
 
-if [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then
+if [ x"${KNX_TRANSPORT}" != x"knxd" ]; then
+    # Direct KNXnet/IP connection: the bundled knxd is never started (whatever
+    # NO_ENTRYPOINT_KNXD says) and no knxd health check is generated, but the
+    # FastCGI backend always is.
+    validate_ip_transport
+    start_fcgi_backend
+elif [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then
     echo "using external knxd socket '${KNXD_SOCKET}' (knxd is not started by this container)"
     if [ "${KNXD_PARAMETERS}" != "" ] || [ "${KNX_INTERFACE}" != "" ]; then
         echo "NOTE: KNXD_PARAMETERS, KNX_INTERFACE, KNX_INTERFACE_OPTIONS, KNX_PA and KNX_CLIENT_PAS are ignored when an external knxd is used"
