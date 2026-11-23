@@ -58,9 +58,12 @@ elif [ x"${NO_ENTRYPOINT_KNXD}" != x"false" ]; then
 fi
 
 start_fcgi_backend() {
-    # Start cometvisu-knxd-fcgi in standalone socket mode (the binary's intended usage).
+    # Start cometvisu-knx-fcgi (2.x) in socket mode: the binary opens FCGI_SOCKET
+    # itself and the bundled knxd is its only transport.
     export FCGI_SOCKET=${FCGI_SOCKET:-/run/cometvisu-fcgi.sock}
+    export KNX_TRANSPORT=knxd
     export LONGPOLL_TIMEOUT_SEC=${LONGPOLL_TIMEOUT_SEC:-300}
+    export KNX_TX_MAX_PER_SEC=${KNX_TX_MAX_PER_SEC:-10}
     export DEBUG_BACKEND=${DEBUG_BACKEND:-}
     export FCGI_WORKERS=${FCGI_WORKERS:-9}
     if [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then
@@ -73,8 +76,10 @@ start_fcgi_backend() {
         echo "KNXD_SOCKET: '/run/knx' (default, knxd is started by this container)"
     fi
     # Extract knxd client count from KNX_CLIENT_PAS (format: <addr>:<count>).
-    # That number is only known when knxd is started by this container - for an
-    # external knxd FCGI_WORKERS has to fit the external configuration.
+    # Since 2.x the backend uses exactly ONE knxd client connection (the cache
+    # reader); the workers only enqueue telegrams into shared memory.  The
+    # client count is therefore independent of FCGI_WORKERS - it only has to
+    # leave room for the cache reader (and a spare for knxtool).
     if [ x"${START_KNXD}" = x"true" ]; then
         KNXD_CLIENT_COUNT="${KNX_CLIENT_PAS##*:}"
         case "${KNXD_CLIENT_COUNT}" in
@@ -83,39 +88,43 @@ start_fcgi_backend() {
                 exit 1
                 ;;
         esac
-        # One of the client connections is reserved for the internal cache
-        # reader, so at most (client count - 1) workers may run. Together with
-        # the requirement of at least 2 workers this means that knxd needs at
-        # least 3 client connections.
-        if [ "${KNXD_CLIENT_COUNT}" -lt 3 ]; then
-            echo "ERROR: KNX_CLIENT_PAS client count (${KNXD_CLIENT_COUNT}) is too low - at least 3 client connections are required so that FCGI_WORKERS = clients - 1 is greater than 1"
+        if [ "${KNXD_CLIENT_COUNT}" -lt 2 ]; then
+            echo "ERROR: KNX_CLIENT_PAS client count (${KNXD_CLIENT_COUNT}) is too low - at least 2 client connections are required (one for the backend's cache reader, one for tools like knxtool)"
             exit 1
         fi
-        MAX_FCGI_WORKERS=$((KNXD_CLIENT_COUNT - 1))
-        if [ "${FCGI_WORKERS}" -gt "${MAX_FCGI_WORKERS}" ]; then
-            echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) must be one less than the knxd client count (${KNXD_CLIENT_COUNT}) as one connection is used by the cache reader, reducing to ${MAX_FCGI_WORKERS}"
-            export FCGI_WORKERS="${MAX_FCGI_WORKERS}"
-        fi
-        if [ "${FCGI_WORKERS}" -lt 2 ]; then
-            echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) must be larger than 1, increasing to 2"
-            export FCGI_WORKERS=2
-        fi
     fi
+    # The backend reserves two workers for /w and /l so that a long-poll can
+    # never delay a switch operation; below 2 workers that reservation is not
+    # possible.  256 is the backend's hard limit.
+    if [ "${FCGI_WORKERS}" -lt 2 ]; then
+        echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) must be larger than 1, increasing to 2"
+        export FCGI_WORKERS=2
+    fi
+    if [ "${FCGI_WORKERS}" -gt 256 ]; then
+        echo "WARNING: FCGI_WORKERS (${FCGI_WORKERS}) exceeds the backend limit of 256, reducing to 256"
+        export FCGI_WORKERS=256
+    fi
+    echo "KNX_TRANSPORT: '${KNX_TRANSPORT}'"
     echo "LONGPOLL_TIMEOUT_SEC: '${LONGPOLL_TIMEOUT_SEC}'"
+    echo "KNX_TX_MAX_PER_SEC: '${KNX_TX_MAX_PER_SEC}'"
     echo "FCGI_WORKERS: '${FCGI_WORKERS}'"
     if [ x"${DEBUG_BACKEND}" = x"1" ]; then
         echo "DEBUG_BACKEND: enabled"
     fi
-    echo -n "starting cometvisu-knxd-fcgi - version: " && cometvisu-knxd-fcgi --version
-    cometvisu-knxd-fcgi &
+    echo -n "starting cometvisu-knx-fcgi - version: " && cometvisu-knx-fcgi --version
+    cometvisu-knx-fcgi &
     sleep 2
     if [ ! -S "${FCGI_SOCKET}" ]; then
-        echo "Error: cometvisu-knxd-fcgi socket does not exist at ${FCGI_SOCKET}";
+        echo "Error: cometvisu-knx-fcgi socket does not exist at ${FCGI_SOCKET}";
         exit 1;
     fi
-    chmod a+rwx "${FCGI_SOCKET}"
-    echo "if ! pgrep -f cometvisu-knxd-fcgi >/dev/null; then healthcheck_fail 'Error: cometvisu-knxd-fcgi not running'; fi" >> /usr/local/bin/healthcheck
-    echo "if [ ! -S \"\${FCGI_SOCKET}\" ]; then healthcheck_fail 'Error: cometvisu-knxd-fcgi socket does not exist'; fi" >> /usr/local/bin/healthcheck
+    # The backend creates the Unix socket as 0660 root:root; Apache runs as
+    # www-data, so hand the socket group over instead of making it world
+    # writable.
+    chown root:www-data "${FCGI_SOCKET}"
+    chmod 0660 "${FCGI_SOCKET}"
+    echo "if ! pgrep -f cometvisu-knx-fcgi >/dev/null; then healthcheck_fail 'Error: cometvisu-knx-fcgi not running'; fi" >> /usr/local/bin/healthcheck
+    echo "if [ ! -S \"\${FCGI_SOCKET}\" ]; then healthcheck_fail 'Error: cometvisu-knx-fcgi socket does not exist'; fi" >> /usr/local/bin/healthcheck
 }
 
 if [ x"${USE_EXTERNAL_KNXD}" = x"true" ]; then

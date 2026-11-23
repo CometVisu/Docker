@@ -34,7 +34,8 @@ Environment parameters:
 |ACCESS_LOG             | false                     |Show web server access log when set to `true`|
 |APACHE_PORT            | 80                        |Expert option: port Apache listens on inside the container. When changed, publish with `-p <host-port>:<APACHE_PORT>` (`EXPOSE` stays `80`)|
 |LONGPOLL_TIMEOUT_SEC   | 300                       |Max seconds to wait in long-poll for the `r` (read) backend request|
-|FCGI_WORKERS           | 9                         |Number of FastCGI worker processes. When knxd is started by this container the value is limited to the knxd client count minus one (at least 2)|
+|FCGI_WORKERS           | 9                         |Number of FastCGI worker processes (at least 2, at most 256). Since cometvisu-knx-fcgi 2.x the workers use no knxd connection of their own, so this is independent of `KNX_CLIENT_PAS`. Two workers are reserved for `/w` and `/l`, therefore `FCGI_WORKERS - 2` clients can long-poll at the same time.|
+|KNX_TX_MAX_PER_SEC     | 10                        |Upper bound for outgoing KNX telegrams per second over all clients (protects the bus)|
 |DEBUG_BACKEND          | *(unset)*                 |Set to `1` to enable debug logging of the FastCGI backend to stderr|
 
 ### KNX
@@ -56,12 +57,12 @@ KNX_PA=1.1.250
 **Note:** When `BACKEND_KNXD` and `CGI_URL_PATH` are set at the same time
 the value of `BACKEND_KNXD` is used.
 
-**Note:** Each FastCGI worker uses one client connection of the knxd, and one
-further connection is used by the internal cache reader. Therefore `FCGI_WORKERS`
-must be the client count of `KNX_CLIENT_PAS` minus one and larger than 1. When
-knxd is started by this container, `FCGI_WORKERS` is automatically reduced to
-`<count> - 1` (and raised to 2 if smaller), so `KNX_CLIENT_PAS` needs at least
-3 client connections - otherwise the container refuses to start.
+**Note:** Since cometvisu-knx-fcgi 2.x the backend uses exactly **one** client
+connection of knxd (the cache reader); the FastCGI workers only hand telegrams
+to the shared queue. `FCGI_WORKERS` is therefore independent of
+`KNX_CLIENT_PAS`; the client count only has to leave room for that one
+connection plus a spare for tools like `knxtool`, so at least 2 client
+connections are required - otherwise the container refuses to start.
 
 #### External knxd
 
@@ -91,11 +92,9 @@ the external knxd is restarted and recreates the socket.
 * `KNX_PA`, `KNX_CLIENT_PAS`, `KNX_INTERFACE`, `KNX_INTERFACE_OPTIONS` and
 `KNXD_PARAMETERS` are ignored - the external knxd brings its own configuration
 (including the group cache, which must be enabled there for reads).
-* `FCGI_WORKERS` must be the number of client connections the external knxd
-accepts (`-E <address>:<count>`) minus one, as each worker uses one connection
-and one more is used by the internal cache reader. The automatic adjustment
-based on `KNX_CLIENT_PAS` only happens when the container starts knxd itself -
-for an external knxd `FCGI_WORKERS` has to be set to fit its configuration.
+* `FCGI_WORKERS` only controls the number of FastCGI worker processes (at
+least 2, at most 256); it does not depend on how many client connections the
+external knxd accepts, because the backend uses exactly one of them.
 * No health check for knxd is generated (neither the process nor the socket is
 controlled by this container); only the FastCGI backend and Apache are checked.
 

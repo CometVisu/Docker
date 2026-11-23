@@ -20,14 +20,14 @@ RUN git clone -b debian https://github.com/knxd/knxd.git \
  && make install DESTDIR=/tmp/knxd-install \
  && git rev-parse --short HEAD > /tmp/knxd-git-rev
 
-# Build cometvisu-knxd-fcgi (FastCGI backend for CometVisu Protocol)
-RUN git clone https://github.com/CometVisu/cometvisu-knxd-fcgi.git \
- && cd cometvisu-knxd-fcgi \
+# Build cometvisu-knx-fcgi 2.x (FastCGI backend for the CometVisu Protocol)
+RUN git clone https://github.com/CometVisu/cometvisu-knx-fcgi.git \
+ && cd cometvisu-knx-fcgi \
  && cmake -B build -DCMAKE_BUILD_TYPE=Release -DKNXD_SOURCE_DIR=$SOURCEDIR/knxd/src \
  && cmake --build build -j$(nproc) \
- && cmake --install build --prefix /tmp/cometvisu-knxd-fcgi-install \
- && ./build/src/cometvisu-knxd-fcgi --version | awk '{print $NF}' > /tmp/knxd-fcgi-version \
- && git rev-parse --short HEAD > /tmp/knxd-fcgi-git-rev
+ && cmake --install build --prefix /tmp/cometvisu-knx-fcgi-install \
+ && ./build/src/cometvisu-knx-fcgi --version | awk '{print $NF}' > /tmp/knx-fcgi-version \
+ && git rev-parse --short HEAD > /tmp/knx-fcgi-git-rev
 
 ##############
 # Run environment
@@ -59,18 +59,18 @@ ARG VCS_REF
 ARG BUILD_DATE_COMETVISUBASE
 ARG GIT_REV_COMETVISUBASE
 ARG GIT_REV_KNXD
-ARG GIT_REV_KNXD_FCGI=local
-ARG KNXD_FCGI_VERSION=unknown
+ARG GIT_REV_KNX_FCGI=local
+ARG KNX_FCGI_VERSION=unknown
 
 # Own labels
 LABEL maintainer="https://www.cometvisu.org/"
 LABEL org.cometvisu.knxd.version="0.14.75"
-LABEL org.cometvisu.knxd-fcgi.version="$KNXD_FCGI_VERSION"
+LABEL org.cometvisu.knx-fcgi.version="$KNX_FCGI_VERSION"
 LABEL org.cometvisu.cometvisubase.version="$BUILD_DATE-$VCS_REF"
 LABEL org.cometvisu.cometvisubase.build-date="$BUILD_DATE_COMETVISUBASE"
 LABEL org.cometvisu.cometvisubase.git-rev="$GIT_REV_COMETVISUBASE"
 LABEL org.cometvisu.knxd.git-rev="$GIT_REV_KNXD"
-LABEL org.cometvisu.knxd-fcgi.git-rev="$GIT_REV_KNXD_FCGI"
+LABEL org.cometvisu.knx-fcgi.git-rev="$GIT_REV_KNX_FCGI"
 # Labels according to http://label-schema.org/rc1/
 LABEL org.label-schema.schema-version="1.0"
 LABEL org.label-schema.build-date=$BUILD_DATE
@@ -86,8 +86,8 @@ LABEL org.label-schema.version="$BUILD_DATE-$VCS_REF"
 COPY --from=builder /tmp/knxd-install/usr/ /usr/
 COPY --from=builder /usr/src/knxd/systemd/knxd.conf /etc/knxd.conf
 COPY --from=builder /tmp/knxd-git-rev /usr/share/knxd/git-rev
-COPY --from=builder /tmp/cometvisu-knxd-fcgi-install/bin/cometvisu-knxd-fcgi /usr/local/bin/cometvisu-knxd-fcgi
-COPY --from=builder /tmp/knxd-fcgi-git-rev /usr/share/cometvisu-knxd-fcgi-git-rev
+COPY --from=builder /tmp/cometvisu-knx-fcgi-install/bin/cometvisu-knx-fcgi /usr/local/bin/cometvisu-knx-fcgi
+COPY --from=builder /tmp/knx-fcgi-git-rev /usr/share/cometvisu-knx-fcgi-git-rev
 
 COPY rrdfetch /usr/lib/cgi-bin/rrdfetch
 
@@ -124,12 +124,12 @@ RUN { \
  && a2enmod proxy_fcgi \
  && a2enconf serve-cgi-bin \
  && { \
-    echo '# Proxy FastCGI requests to the standalone cometvisu-knxd-fcgi Unix socket'; \
+    echo '# Proxy FastCGI requests to the standalone cometvisu-knx-fcgi Unix socket'; \
     echo 'ProxyPass "/cgi-bin/l" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/l"'; \
     echo 'ProxyPass "/cgi-bin/r" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/r"'; \
     echo 'ProxyPass "/cgi-bin/w" "unix:/run/cometvisu-fcgi.sock|fcgi://localhost/w"'; \
-    } | tee "$APACHE_CONFDIR/conf-available/cv-knxd-fcgi.conf" \
- && a2enconf cv-knxd-fcgi
+    } | tee "$APACHE_CONFDIR/conf-available/cv-knx-fcgi.conf" \
+ && a2enconf cv-knx-fcgi
 
 COPY cometvisu-entrypoint /usr/local/bin/cometvisu-entrypoint
 ENTRYPOINT ["cometvisu-entrypoint"]
@@ -155,11 +155,17 @@ ENV BACKEND_OPENHAB=""
 ENV BACKEND_PROXY_SOURCE=""
 ENV BACKEND_PROXY_TARGET=""
 
-# settings for the FastCGI backend
+# settings for the FastCGI backend (cometvisu-knx-fcgi 2.x)
+# The backend requires an explicit transport; this container always bundles knxd.
+ENV KNX_TRANSPORT=knxd
 ENV LONGPOLL_TIMEOUT_SEC=300
-# Must be one less than the KNX_CLIENT_PAS client count (one connection is used
-# by the cache reader) and larger than 1 - see cometvisu-entrypoint.
+# Worker processes.  Since 2.x the workers never open a knxd connection of
+# their own - the single cache reader uses one, whatever FCGI_WORKERS is.
+# At least 2 workers are required (the backend keeps two of them free for
+# /w and /l), so with 2 workers exactly one long-poll can be served.
 ENV FCGI_WORKERS=9
+# Outgoing telegram rate limit over all clients; protects the KNX bus.
+ENV KNX_TX_MAX_PER_SEC=10
 ENV DEBUG_BACKEND=
 
 ENV STOP_ON_BAD_HEALTH=true
